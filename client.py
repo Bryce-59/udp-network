@@ -2,24 +2,39 @@ from socket import *
 import random
 from message import *
 
-if __name__ == '__main__':
-    SEQ_NUM = 0
-    SESSION_ID = random.randint(0,100)
+serverName = 'aristotle.cs.utexas.edu' #ALWAYS CHECK BEFORE RUNNING
+serverPort = 5000
+clientSocket = socket(AF_INET, SOCK_DGRAM)
+session_id = random.randint(0,(2**31) - 1)
 
-    serverName = 'descartes.cs.utexas.edu' # CHECK TO MAKE SURE THIS IS CORRECT BEFORE RUNNING - note to self
-    serverPort = 5000
-    clientSocket = socket(AF_INET, SOCK_DGRAM)
-
-    packet = message_packing(Command.HELLO, SEQ_NUM, SESSION_ID)
-    clientSocket.sendto(packet,(serverName, serverPort))
-    message = input('Input message: ')
-    packet = message_packing(Command.DATA, SEQ_NUM + 1, SESSION_ID) # Default is 0 until handshaking is implemented
-    packet = b''.join((packet, message.encode('ASCII')))
-    print(packet)
-
-    clientSocket.sendto(packet,(serverName, serverPort))
-
+def send_and_receive(command, seq_num, data=None):
+    message = message_packing(command, seq_num, session_id)
+    if (command == Command.DATA):
+        message = b''.join((message, data.encode('ASCII')))
+    clientSocket.sendto(message,(serverName, serverPort))
+    
     modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
-    print(modifiedMessage.decode())
+    valid, rcv_cmd, _, _, _ = message_unpacking(modifiedMessage)
+    return rcv_cmd
+
+if __name__ == '__main__':
+    seq_num = 0
+
+    "Handshake Start"
+    rcv_cmd = send_and_receive(Command.HELLO, seq_num)
+    seq_num += 1
+    if (rcv_cmd != Command.HELLO):
+        #terminate
+        print("error") #delete
+    "End Handshake"
+
+    while (True): #Implement so that server returns ALIVE after receiving DATA 
+        data = input('Input message: ')
+
+        rcv_cmd = send_and_receive(Command.DATA, seq_num, data)
+        seq_num += 1
+
+        modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+        print(modifiedMessage.decode())
 
     clientSocket.close()

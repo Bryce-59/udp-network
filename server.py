@@ -7,8 +7,8 @@ sequence_list = []
 def verify_session(message):
     valid, cmd, seq, s_id, data = message_unpacking(message)
     if (valid == False):
+        print("invalid")
         return None, None, None #close
-    
     if (s_id not in session_list):
         if (cmd == Command.HELLO):
             if (seq == 0):
@@ -16,8 +16,10 @@ def verify_session(message):
                 sequence_list.append(seq)
                 return cmd, s_id, data
             else:
+                print("Hello, not 0")
                 return None, None, None #close immediately, no messages
         else:
+            print("0, not Hello")
             return None, None, None #terminates
     else:
         value = sequence_list[session_list.index(s_id)]
@@ -26,10 +28,13 @@ def verify_session(message):
             return cmd, s_id, data
         else:
             if (seq > value):
+                print("Lost packet")
                 return None, None, None #"Lost packet!"
             if (seq == value):
+                print("Duplicate packet")
                 return None, None, None #"Duplicate packet!" (discard)
             else:
+                print("Goodbye (bad)")
                 return None, None, None #protocol error (GOODBYE)
 
 if __name__ == '__main__':
@@ -39,8 +44,20 @@ if __name__ == '__main__':
     serverSocket.bind(('', serverPort))
     print('ready to serve')
 
+    global_counter = 0
+
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
+        command, session_id, data = verify_session(message)
+        
+        "Handshake Start"
+        if (command == Command.HELLO):
+            message = message_packing(Command.HELLO, global_counter, session_id)
+            serverSocket.sendto(message, clientAddress)
+            global_counter += 1
+            "Handshake End"
+
+
         '''
         * header length is constant
         * query socket library for the length of the upd segment/packet?
@@ -51,7 +68,6 @@ if __name__ == '__main__':
         '''
         # modifiedMessage = message.decode().upper()
         print(message)
-        command, session_id, data = verify_session(message) # THIS IS THE FUNCTION I ADDED, feel free to do whatever with it
         # print(type(message))
         print(command)
         # serverSocket.sendto(modifiedMessage.encode(), clientAddress)
