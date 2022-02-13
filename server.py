@@ -34,6 +34,7 @@ if __name__ == '__main__':
     serverSocket = socket(AF_INET, SOCK_DGRAM)
     serverSocket.bind(('', serverPort))
     print('ready to serve')
+
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
         '''
