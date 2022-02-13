@@ -23,8 +23,9 @@ if __name__ == '__main__':
     serverPort = 5000
     clientSocket = socket(AF_INET, SOCK_DGRAM)
 
+    packet = message_packing(0, None)
     message = input('Input message: ')
-    packet = message_packing(0, message) # Default is 0 until handshaking is implemented
+    packet = message_packing(1, message) # Default is 0 until handshaking is implemented
     print(packet)
 
     clientSocket.sendto(packet,(serverName, serverPort))

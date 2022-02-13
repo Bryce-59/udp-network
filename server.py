@@ -6,7 +6,7 @@ sequence_list = []
 def message_checking(message): #rough skeleton for message_checking function (ERRORS NOT IMPLEMENTED)
     magic = int.from_bytes(message[:2],byteorder='big')
     version = int.from_bytes(message[2:3],byteorder='big')
-    if (m != 0xC356 or v != 1): #if magic or version numbers are wrong, should be "silently discarded" (invalid)
+    if (magic != 0xC356 or version != 1): #if magic or version numbers are wrong, should be "silently discarded" (invalid)
         return None
     
     cmd = int.from_bytes(message[3:4],byteorder='big')
