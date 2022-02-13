@@ -7,8 +7,6 @@ SEQ_NUM = 0
 SESSION_ID = random.randint(0,100)
 
 def message_packing(command,message=None):
-    #msg = struct.pack(MAGIC,VERSION,command,SEQ_NUM,SESSION_ID,message)
-    #print(msg)
     m = MAGIC.to_bytes(2,byteorder='big')
     v = VERSION.to_bytes(1,byteorder='big')
     c = command.to_bytes(1,byteorder='big')
@@ -19,11 +17,11 @@ def message_packing(command,message=None):
         return b''.join((header,message.encode('ASCII')))
     return header
 
-serverName = 'aristotle.cs.utexas.edu'
+serverName = 'aristotle.cs.utexas.edu' #CHECK TO MAKE SURE THIS IS CORRECT BEFORE RUNNING - note to self
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 message = input('Input message: ')
-packet = message_packing(1, message)
+packet = message_packing(0, message) #Default is 0 until handshaking is implemented
 print(packet)
 clientSocket.sendto(packet,(serverName, serverPort))
 modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
