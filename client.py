@@ -17,12 +17,12 @@ def message_packing(command,message=None):
         return b''.join((header,message.encode('ASCII')))
     return header
 
-serverName = 'aristotle.cs.utexas.edu' #CHECK TO MAKE SURE THIS IS CORRECT BEFORE RUNNING - note to self
+serverName = 'aristotle.cs.utexas.edu' # CHECK TO MAKE SURE THIS IS CORRECT BEFORE RUNNING - note to self
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
 message = input('Input message: ')
-packet = message_packing(0, message) #Default is 0 until handshaking is implemented
+packet = message_packing(0, message) # Default is 0 until handshaking is implemented
 print(packet)
 
 clientSocket.sendto(packet,(serverName, serverPort))
