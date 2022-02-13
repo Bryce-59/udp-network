@@ -20,10 +20,14 @@ def message_packing(command,message=None):
 serverName = 'aristotle.cs.utexas.edu' #CHECK TO MAKE SURE THIS IS CORRECT BEFORE RUNNING - note to self
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
+
 message = input('Input message: ')
 packet = message_packing(0, message) #Default is 0 until handshaking is implemented
 print(packet)
+
 clientSocket.sendto(packet,(serverName, serverPort))
+
 modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
 print(modifiedMessage.decode())
+
 clientSocket.close()
