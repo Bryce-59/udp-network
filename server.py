@@ -1,9 +1,17 @@
+#TODO: Implement GOODBYE
+#TODO: Implement Error Handling
+#TODO: Add threads: ONE should listen for messages, TWO should accept keyboard inputs 
+
 from socket import *
 from message import *
 
 session_list = []
 sequence_list = []
 
+"""
+A function that accepts a message and then ensures that it is a
+valid session. This involves checking the session_id and sequence_number.
+"""
 def verify_session(message):
     valid, cmd, seq, s_id, data = message_unpacking(message)
     if (valid == False):
@@ -56,6 +64,11 @@ if __name__ == '__main__':
             serverSocket.sendto(message, clientAddress)
             global_counter += 1
             "Handshake End"
+        if (command == Command.DATA):
+            print(data.decode(encoding='ASCII'))
+            message = message_packing(Command.ALIVE, global_counter, session_id)
+            serverSocket.sendto(message, clientAddress)
+            global_counter += 1
 
 
         '''
@@ -66,8 +79,3 @@ if __name__ == '__main__':
 
         TEST: using just data option, return error if not data command
         '''
-        # modifiedMessage = message.decode().upper()
-        print(message)
-        # print(type(message))
-        print(command)
-        # serverSocket.sendto(modifiedMessage.encode(), clientAddress)
