@@ -1,6 +1,6 @@
 
 from socket import *
-from testMessage import *
+from message import *
 from threading import *
 import sys
 
