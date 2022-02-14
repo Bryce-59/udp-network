@@ -1,81 +1,96 @@
-#TODO: Implement GOODBYE
-#TODO: Implement Error Handling
-#TODO: Add threads: ONE should listen for messages, TWO should accept keyboard inputs 
 
 from socket import *
-from message import *
+from testMessage import *
+from threading import *
+import sys
 
-session_list = []
-sequence_list = []
 
-"""
-A function that accepts a message and then ensures that it is a
-valid session. This involves checking the session_id and sequence_number.
-"""
-def verify_session(message):
-    valid, cmd, seq, s_id, data = message_unpacking(message)
-    if (valid == False):
-        print("invalid")
-        return None, None, None #close
-    if (s_id not in session_list):
-        if (cmd == Command.HELLO):
-            if (seq == 0):
-                session_list.append(s_id)
-                sequence_list.append(seq)
-                return cmd, s_id, data
+def handle_socket():
+    server_seq_num = 0
+    sessions = {}
+
+    while True:
+        message, clientAddress = serverSocket.recvfrom(2048)
+
+        magic, version, command, seq_num, session_id, message = unpack_message(message)
+        # TODO: WE CAN REFACTOR THIS A LITTLE BIT... IT'S JUST THAT THE VERIFY_SESSION
+        # FUNCTION WAS CONFUSING FOR ME... THIS MORE CLEARLY SHOWS THE PROGRESSION THE CHECKING GOES THROUGH
+
+        if magic == MAGIC and version == VERSION:
+            # now we know the packet is valid
+            if session_id in sessions:
+                # error check
+                if command == Command.HELLO:
+                    sessions.pop(session_id)
+                elif seq_num > (sessions[session_id] + 1):
+                    print('LOST PACKET')
+                elif seq_num == sessions[session_id]:
+                    print('DUPLICATE PACKET')
+                elif seq_num < sessions[session_id]:
+                    print('PROTOCOL ERROR')
+                    response = pack_message(Command.GOODBYE, server_seq_num, session_id)
+                    serverSocket.sendto(response, clientAddress)
+                    server_seq_num += 1
+                else:
+                    # respond to message
+                    sessions[session_id] = sessions[session_id] + 1
+                    if command == Command.DATA:
+                        print('%s [%d] %s' % (hex(session_id), seq_num, message.decode('ASCII')))
+                        response = pack_message(Command.ALIVE, server_seq_num, session_id)
+                        serverSocket.sendto(response, clientAddress)
+                        server_seq_num += 1
+                    elif command == Command.GOODBYE:
+                        print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
+                        response = pack_message(Command.GOODBYE, server_seq_num, session_id)
+                        serverSocket.sendto(response, clientAddress)
+                        server_seq_num += 1
+                        sessions.pop(session_id)
+                        print('%s Session closed' % hex(session_id))
             else:
-                print("Hello, not 0")
-                return None, None, None #close immediately, no messages
-        else:
-            print("0, not Hello")
-            return None, None, None #terminates
-    else:
-        value = sequence_list[session_list.index(s_id)]
-        if (seq == value + 1):
-            sequence_list[session_list.index(s_id)] += 1
-            return cmd, s_id, data
-        else:
-            if (seq > value):
-                print("Lost packet")
-                return None, None, None #"Lost packet!"
-            if (seq == value):
-                print("Duplicate packet")
-                return None, None, None #"Duplicate packet!" (discard)
-            else:
-                print("Goodbye (bad)")
-                return None, None, None #protocol error (GOODBYE)
+                # make new session
+                if command == Command.HELLO and seq_num == 0:
+                    # create session and send hello back
+                    print('%s [%d] Session created' % (hex(session_id), seq_num))
+                    sessions[session_id] = seq_num
+                    response = pack_message(Command.HELLO, server_seq_num, session_id)
+                    serverSocket.sendto(response, clientAddress)
+                    server_seq_num += 1
+
+
+def handle_keyboard():
+    while True:
+        text = sys.stdin.readline()
+        if (not text or (text == "q\n" and sys.stdin.isatty())):
+            print("EXITING")
+            exit()
+    
 
 if __name__ == '__main__':
 
     serverPort = 5000
     serverSocket = socket(AF_INET, SOCK_DGRAM)
-    serverSocket.bind(('', serverPort))
-    print('ready to serve')
+    serverSocket.bind((b'0.0.0.0', serverPort))
+    print('Waiting on port %d...' % serverPort)
 
-    global_counter = 0
+    t1 = Thread(target=handle_socket, daemon=True)
+    t1.start()
 
-    while True:
-        message, clientAddress = serverSocket.recvfrom(2048)
-        command, session_id, data = verify_session(message)
-        
-        "Handshake Start"
-        if (command == Command.HELLO):
-            message = message_packing(Command.HELLO, global_counter, session_id)
-            serverSocket.sendto(message, clientAddress)
-            global_counter += 1
-            "Handshake End"
-        if (command == Command.DATA):
-            print(data.decode(encoding='ASCII'))
-            message = message_packing(Command.ALIVE, global_counter, session_id)
-            serverSocket.sendto(message, clientAddress)
-            global_counter += 1
+    handle_keyboard()
 
+'''
+Inspect message:
+- check magic and version
+-- if they are wrong, silently discard
 
-        '''
-        * header length is constant
-        * query socket library for the length of the upd segment/packet?
+- next: examine session id field
+-- if id field is new, open new session and hand packet to it
+--- check that command is HELLO; if not, terminate session
+--- check that sequence number is 0 (since this is the first thing we'd expect)
 
-        - figure out what kind of message we were sent
-
-        TEST: using just data option, return error if not data command
-        '''
+-- else, hand packet to existing session
+--- if we receive a hello, terminate session
+--- make sure that the sequence number is what we expect
+---- if greater than expected, print "LOST PACKET"
+---- if same as last received, print "DUPLICATE PACKET" and discard the packet
+---- if less than expected, this is a protocol error; send GOODBYE, print "PROTOCOL ERROR", and terminate
+'''

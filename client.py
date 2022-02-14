@@ -16,34 +16,41 @@ a string to append.
 The function packs and transmits the message to the server, and waits for a response.
 This response is then analyzed and then, if valid, the command is returned.
 """
-def send_and_receive(command, seq_num, data=None):
-    message = message_packing(command, seq_num, session_id)
-    if (command == Command.DATA):
-        message = b''.join((message, data.encode('ASCII')))
+def send_and_receive(command, seq_num, session_id, data=None):
+    message = pack_message(command, seq_num, session_id, data)
     clientSocket.sendto(message,(serverName, serverPort))
     
     modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
-    valid, rcv_cmd, _, _, _ = message_unpacking(modifiedMessage)
-    return rcv_cmd
+    magic, version, command, seq_num, session_id, response = unpack_message(modifiedMessage)
+    return command
 
 if __name__ == '__main__':
-    seq_num = 0
 
-    "Handshake Start"
-    rcv_cmd = send_and_receive(Command.HELLO, seq_num)
+    seq_num = 0
+    # Handshake start
+    rcv_cmd = send_and_receive(Command.HELLO, seq_num, session_id)
     seq_num += 1
     if (rcv_cmd != Command.HELLO):
         #terminate
         print("error") #delete
-    "End Handshake"
+    # Handshake end
 
-    while (True):
-        data = input('Input message: ')
+    # data = input()
 
-        rcv_cmd = send_and_receive(Command.DATA, seq_num, data)
-        seq_num += 1
-        if (rcv_cmd != Command.ALIVE):
-            #maybe an error, hard to tell
-            print("Not ALIVE?")
+    data = 'Hello, world!'
+
+    rcv_cmd = send_and_receive(Command.DATA, seq_num, session_id, data)
+    seq_num += 1
+    if (rcv_cmd != Command.ALIVE):
+        #maybe an error, hard to tell
+        print("Not ALIVE?")
+
+    # GOODBYE
+
+    rcv_cmd = send_and_receive(Command.GOODBYE, seq_num, session_id)
+    if (rcv_cmd != Command.GOODBYE):
+        print('No goodbye?')
+
+    print('closing client')
 
     clientSocket.close()
