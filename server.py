@@ -13,26 +13,27 @@ def handle_socket():
         message, clientAddress = serverSocket.recvfrom(2048)
 
         magic, version, command, seq_num, session_id, message = unpack_message(message)
-        # TODO: WE CAN REFACTOR THIS A LITTLE BIT... IT'S JUST THAT THE VERIFY_SESSION
-        # FUNCTION WAS CONFUSING FOR ME... THIS MORE CLEARLY SHOWS THE PROGRESSION THE CHECKING GOES THROUGH
 
         if magic == MAGIC and version == VERSION:
             # now we know the packet is valid
             if session_id in sessions:
                 # error check
                 if command == Command.HELLO:
-                    sessions.pop(session_id)
+                    pass
                 elif seq_num > (sessions[session_id] + 1):
-                    print('LOST PACKET')
+                    for i in range (sessions[session_id] + 1, seq_num, 1):
+                        print('%s [%d] Lost packet!' % (hex(session_id), i))
+                    pass
                 elif seq_num == sessions[session_id]:
-                    print('DUPLICATE PACKET')
+                    print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
+                    pass
                 elif seq_num < sessions[session_id]:
-                    print('PROTOCOL ERROR')
                     response = pack_message(Command.GOODBYE, server_seq_num, session_id)
                     serverSocket.sendto(response, clientAddress)
                     server_seq_num += 1
+                    sessions.pop(session_id)
                 else:
-                    # respond to message
+                    # respond to received commands
                     sessions[session_id] = sessions[session_id] + 1
                     if command == Command.DATA:
                         print('%s [%d] %s' % (hex(session_id), seq_num, message.decode('ASCII')))
@@ -46,6 +47,11 @@ def handle_socket():
                         server_seq_num += 1
                         sessions.pop(session_id)
                         print('%s Session closed' % hex(session_id))
+                    else:
+                        response = pack_message(Command.GOODBYE, server_seq_num, session_id)
+                        serverSocket.sendto(response, clientAddress)
+                        server_seq_num += 1
+                        sessions.pop(session_id)
             else:
                 # make new session
                 if command == Command.HELLO and seq_num == 0:
@@ -55,7 +61,11 @@ def handle_socket():
                     response = pack_message(Command.HELLO, server_seq_num, session_id)
                     serverSocket.sendto(response, clientAddress)
                     server_seq_num += 1
-
+        else:
+            response = pack_message(Command.GOODBYE, server_seq_num, session_id)
+            serverSocket.sendto(response, clientAddress)
+            server_seq_num += 1
+            sessions.pop(session_id)
 
 def handle_keyboard():
     while True:

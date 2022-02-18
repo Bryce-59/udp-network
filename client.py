@@ -31,26 +31,24 @@ if __name__ == '__main__':
     rcv_cmd = send_and_receive(Command.HELLO, seq_num, session_id)
     seq_num += 1
     if (rcv_cmd != Command.HELLO):
-        #terminate
-        print("error") #delete
+        clientSocket.close()
+        exit()
     # Handshake end
 
-    # data = input()
-
-    data = 'Hello, world!'
-
-    rcv_cmd = send_and_receive(Command.DATA, seq_num, session_id, data)
-    seq_num += 1
-    if (rcv_cmd != Command.ALIVE):
-        #maybe an error, hard to tell
-        print("Not ALIVE?")
-
-    # GOODBYE
-
-    rcv_cmd = send_and_receive(Command.GOODBYE, seq_num, session_id)
-    if (rcv_cmd != Command.GOODBYE):
-        print('No goodbye?')
-
-    print('closing client')
-
-    clientSocket.close()
+    while True:
+        data = sys.stdin.readline()
+        if (not text or (text == "q\n" and sys.stdin.isatty())):
+            rcv_cmd = send_and_receive(Command.GOODBYE, seq_num, session_id, None)
+            clientSocket.close()
+            exit()
+        else:
+            rcv_cmd = send_and_receive(Command.DATA, seq_num, session_id, data)
+        
+        seq_num += 1
+        if (rcv_cmd == Command.GOODBYE):
+            print('closing client')
+            clientSocket.close()
+            exit()
+        elif (rcv_cmd != Command.ALIVE):
+            clientSocket.close() #error
+            exit()
