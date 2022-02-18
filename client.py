@@ -4,6 +4,8 @@
 from socket import *
 import random
 from message import *
+import sys
+
 
 serverName = 'aristotle.cs.utexas.edu' #ALWAYS CHECK BEFORE RUNNING
 serverPort = 5000
@@ -37,7 +39,7 @@ if __name__ == '__main__':
 
     while True:
         data = sys.stdin.readline()
-        if (not text or (text == "q\n" and sys.stdin.isatty())):
+        if (not data or (data == "q\n" and sys.stdin.isatty())):
             rcv_cmd = send_and_receive(Command.GOODBYE, seq_num, session_id, None)
             clientSocket.close()
             exit()
