@@ -55,7 +55,7 @@ def handle_socket():
                 serverSocket.sendto(response, clientAddress)
                 server_seq_num += 1
                 # NOTE: START TIMER
-                timer = threading.Timer(3, close_session)
+                timer = threading.Timer(5, close_session)
                 timers[session_id] = timer
                 timer.start()
                 pass
@@ -80,7 +80,7 @@ def handle_socket():
                     server_seq_num += 1
 
                     # NOTE: restart timer (should we cancel here?)
-                    timer = threading.Timer(3, close_session)
+                    timer = threading.Timer(5, close_session)
                     timers[session_id] = timer
                     timer.start()
                     pass
