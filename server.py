@@ -111,21 +111,3 @@ if __name__ == '__main__':
     t1.start()
 
     handle_keyboard()
-
-'''
-Inspect message:
-- check magic and version
--- if they are wrong, silently discard
-
-- next: examine session id field
--- if id field is new, open new session and hand packet to it
---- check that command is HELLO; if not, terminate session
---- check that sequence number is 0 (since this is the first thing we'd expect)
-
--- else, hand packet to existing session
---- if we receive a hello, terminate session
---- make sure that the sequence number is what we expect
----- if greater than expected, print "LOST PACKET"
----- if same as last received, print "DUPLICATE PACKET" and discard the packet
----- if less than expected, this is a protocol error; send GOODBYE, print "PROTOCOL ERROR", and terminate
-'''
