@@ -1,4 +1,6 @@
 # TODO: Implement client-side Timer
+# TODO: pass statements should be replaced by continue statements
+# - go through and make sure conditional logic still works
 
 from message import *
 from socket import *
@@ -16,7 +18,7 @@ def close_session(sessions, session_id, server_seq_num, clientAddress):
 '''
 Helper function which handles the DATA and GOODBYE commands 
 '''
-def respond_to_command(sessions, command, session_id, server_seq_num, clientAddress)
+def respond_to_command(sessions, command, session_id, server_seq_num, clientAddress):
     if command == Command.DATA:
         print('%s [%d] %s' % (hex(session_id), seq_num, message.decode('ASCII')))
         response = pack_message(Command.ALIVE, server_seq_num, session_id)
@@ -30,10 +32,14 @@ def respond_to_command(sessions, command, session_id, server_seq_num, clientAddr
 def handle_socket():
     server_seq_num = 0
     sessions = {}
+    timers = {}
 
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
         magic, version, command, seq_num, session_id, message = unpack_message(message)
+        # NOTE: cancel timer here
+        if session_id in timers:
+            timers[session_id].cancel()
 
         # check if the packet is valid
         if magic != MAGIC or version != VERSION:
@@ -48,6 +54,10 @@ def handle_socket():
                 response = pack_message(Command.HELLO, server_seq_num, session_id)
                 serverSocket.sendto(response, clientAddress)
                 server_seq_num += 1
+                # NOTE: START TIMER
+                timer = threading.Timer(3, close_session)
+                timers[session_id] = timer
+                timer.start()
                 pass
         # if the session is known, respond accordingly:
         else:
@@ -68,6 +78,11 @@ def handle_socket():
                     sessions[session_id] = seq_num + 1
                     respond_to_command(sessions, command, session_id, server_seq_num, clientAddress)
                     server_seq_num += 1
+
+                    # NOTE: restart timer (should we cancel here?)
+                    timer = threading.Timer(3, close_session)
+                    timers[session_id] = timer
+                    timer.start()
                     pass
                 # otherwise there is a duplicate and you should ignore
                 elif (seq_num == expected - 1):
