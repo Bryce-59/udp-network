@@ -1,13 +1,13 @@
-#TODO: Implement GOODBYE
-#TODO: Implement Error Handling
+# TODO: Implement client-side Timer
+# TODO: Remove stop-and-wait handling for non-HELLO messages (EX2 Q2)
 
-from socket import *
-import random
 from message import *
+import random
+from socket import *
 import sys
 
 
-serverName = 'aristotle.cs.utexas.edu' #ALWAYS CHECK BEFORE RUNNING
+serverName = 'aristotle.cs.utexas.edu'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 session_id = random.randint(0,(2**31) - 1)
@@ -52,5 +52,5 @@ if __name__ == '__main__':
             clientSocket.close()
             exit()
         elif (rcv_cmd != Command.ALIVE):
-            clientSocket.close() #error
+            clientSocket.close()
             exit()
