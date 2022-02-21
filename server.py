@@ -11,7 +11,8 @@ from threading import *
 Helper function that closes a session with id == session_id
 '''
 def close_session(sessions, session_id, server_seq_num, clientAddress):
-    sessions.pop(session_id)
+    if session_id in sessions:
+        sessions.pop(session_id)
     response = pack_message(Command.GOODBYE, server_seq_num, session_id)
     serverSocket.sendto(response, clientAddress)
     
@@ -59,9 +60,6 @@ def handle_socket():
                 timers[session_id] = timer
                 timer.start()
                 continue
-            response = pack_message(Command.GOODBYE, server_seq_num, session_id)
-            serverSocket.sendto(response, clientAddress)
-            continue
         # if the session is known, respond accordingly:
         else:
             # ignore if HELLO is sent at a weird time

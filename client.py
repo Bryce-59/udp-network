@@ -1,5 +1,6 @@
 # TODO: Implement client-side Timer
 # TODO: Remove stop-and-wait handling for non-HELLO messages (EX2 Q2)
+# TODO: Server will not recieve GOODBYE until AFTER it tries to send a message (does not shut down automatically)
 
 from message import *
 import random
