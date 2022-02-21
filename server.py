@@ -1,6 +1,5 @@
-# TODO: Implement client-side Timer
-# TODO: pass statements should be replaced by continue statements
-# - go through and make sure conditional logic still works
+# TODO: Test that conditional logic still works
+# TODO: Implement "Graceful Exit" (may involve making sessions a global variable)
 
 from message import *
 from socket import *
@@ -43,7 +42,7 @@ def handle_socket():
 
         # check if the packet is valid
         if magic != MAGIC or version != VERSION:
-            pass
+            continue
 
         # check is the session is not known
         if session_id not in sessions:
@@ -58,12 +57,12 @@ def handle_socket():
                 timer = threading.Timer(5, close_session)
                 timers[session_id] = timer
                 timer.start()
-                pass
+                continue
         # if the session is known, respond accordingly:
         else:
             # ignore if HELLO is sent at a weird time
             if command == Command.HELLO:
-                pass
+                continue
             # else handle the legal commands:
             elif command == Command.DATA or command == Command.GOODBYE:
                 expected = sessions[session_id] + 1
@@ -83,11 +82,11 @@ def handle_socket():
                     timer = threading.Timer(5, close_session)
                     timers[session_id] = timer
                     timer.start()
-                    pass
+                    continue
                 # otherwise there is a duplicate and you should ignore
                 elif (seq_num == expected - 1):
                     print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
-                    pass
+                    continue
         # if the code reaches here, there was a protocol error 
         close_session(sessions, session_id, server_seq_num, clientAddress)
         server_seq_num += 1
@@ -97,7 +96,7 @@ def handle_keyboard():
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
             print("EXITING")
-            exit()
+            exit() #MUST be graceful exit
     
 
 if __name__ == '__main__':
