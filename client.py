@@ -7,7 +7,7 @@ from socket import *
 import sys
 
 
-serverName = 'aristotle.cs.utexas.edu'
+serverName = 'descartes.cs.utexas.edu'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 session_id = random.randint(0,(2**31) - 1)

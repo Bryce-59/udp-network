@@ -4,6 +4,7 @@
 from message import *
 from socket import *
 import sys
+import threading
 from threading import *
 
 '''
@@ -17,9 +18,9 @@ def close_session(sessions, session_id, server_seq_num, clientAddress):
 '''
 Helper function which handles the DATA and GOODBYE commands 
 '''
-def respond_to_command(sessions, command, session_id, server_seq_num, clientAddress):
+def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data):
     if command == Command.DATA:
-        print('%s [%d] %s' % (hex(session_id), seq_num, message.decode('ASCII')))
+        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('ASCII')))
         response = pack_message(Command.ALIVE, server_seq_num, session_id)
         serverSocket.sendto(response, clientAddress)
     else:
@@ -35,7 +36,7 @@ def handle_socket():
 
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
-        magic, version, command, seq_num, session_id, message = unpack_message(message)
+        magic, version, command, seq_num, session_id, data = unpack_message(message)
         # NOTE: cancel timer here
         if session_id in timers:
             timers[session_id].cancel()
@@ -54,10 +55,13 @@ def handle_socket():
                 serverSocket.sendto(response, clientAddress)
                 server_seq_num += 1
                 # NOTE: START TIMER
-                timer = threading.Timer(5, close_session)
+                timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
                 timers[session_id] = timer
                 timer.start()
                 continue
+            response = pack_message(Command.GOODBYE, server_seq_num, session_id)
+            serverSocket.sendto(response, clientAddress)
+            continue
         # if the session is known, respond accordingly:
         else:
             # ignore if HELLO is sent at a weird time
@@ -65,7 +69,7 @@ def handle_socket():
                 continue
             # else handle the legal commands:
             elif command == Command.DATA or command == Command.GOODBYE:
-                expected = sessions[session_id] + 1
+                expected = sessions[session_id]
                 # if there are lost packets, note them and then continue normally
                 if (seq_num > expected):
                     for i in range (sessions[session_id] + 1, seq_num, 1):
@@ -75,11 +79,11 @@ def handle_socket():
                 # if a valid sequence number, continue: 
                 if (seq_num == expected or seq_num == 0):
                     sessions[session_id] = seq_num + 1
-                    respond_to_command(sessions, command, session_id, server_seq_num, clientAddress)
+                    respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data)
                     server_seq_num += 1
 
                     # NOTE: restart timer (should we cancel here?)
-                    timer = threading.Timer(5, close_session)
+                    timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
                     timers[session_id] = timer
                     timer.start()
                     continue
@@ -96,7 +100,9 @@ def handle_keyboard():
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
             print("EXITING")
-            exit() #MUST be graceful exit
+            socket.shutdown(socket.SHUT_WR)
+            socket.close()
+            exit()
     
 
 if __name__ == '__main__':
