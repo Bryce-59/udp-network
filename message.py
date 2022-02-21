@@ -17,7 +17,7 @@ def pack_message(command, sequence_number, session_id, message=None):
     s_id = session_id.to_bytes(4,byteorder='big')
     packet = b''.join((m,v,cmd,seq,s_id))
     if command == Command.DATA:
-        packet = b''.join((packet, message.encode('ASCII')))
+        packet = b''.join((packet, message.encode('UTF-8')))
     return packet
 
 def unpack_message(message):

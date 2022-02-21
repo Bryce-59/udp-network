@@ -22,7 +22,7 @@ Helper function which handles the DATA and GOODBYE commands
 '''
 def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data):
     if command == Command.DATA:
-        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('ASCII')), end='')
+        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')))
         response = pack_message(Command.ALIVE, server_seq_num, session_id)
         serverSocket.sendto(response, clientAddress)
     else:
