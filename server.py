@@ -2,6 +2,7 @@
 # TODO: Implement "Graceful Exit" (may involve making sessions a global variable)
 
 from message import *
+import socket
 from socket import *
 import sys
 import threading
@@ -97,10 +98,8 @@ def handle_keyboard():
     while True:
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
-            print("EXITING")
-            socket.shutdown(socket.SHUT_WR)
-            socket.close()
-            exit()
+            print("EXITING") #MUST be graceful
+            return None
     
 
 if __name__ == '__main__':
@@ -114,3 +113,6 @@ if __name__ == '__main__':
     t1.start()
 
     handle_keyboard()
+    # serverSocket.shutdown(socket.SHUT_WR)
+    serverSocket.close()
+    exit()
