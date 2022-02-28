@@ -1,4 +1,3 @@
-# TODO: Implement "Graceful Exit"
 
 from message import *
 import socket
@@ -27,20 +26,19 @@ def respond_to_command(sessions, session_id, server_seq_num, clientAddress, comm
     else:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
         # print(lost)
-        close_session(sessions, session_id, server_seq_num, clientAddress, lost)
+        close_session(sessions, session_id, server_seq_num, clientAddress)
         print('%s Session closed' % hex(session_id))
 
 
-def handle_socket():
+def handle_socket(sessions):
     server_seq_num = 0
-    sessions = {}
     timers = {}
     lost = 0
 
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
         magic, version, command, seq_num, session_id, data = unpack_message(message)
-        # NOTE: cancel timer here
+        # cancel timer here
         if session_id in timers:
             timers[session_id].cancel()
 
@@ -53,11 +51,11 @@ def handle_socket():
             # create session and send hello back
             if command == Command.HELLO and seq_num == 0:
                 print('%s [%d] Session created' % (hex(session_id), seq_num))
-                sessions[session_id] = seq_num
+                sessions[session_id] = [seq_num, clientAddress]
                 response = pack_message(Command.HELLO, server_seq_num, session_id)
                 serverSocket.sendto(response, clientAddress)
                 server_seq_num += 1
-                # NOTE: START TIMER
+                # start timer
                 timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
                 timers[session_id] = timer
                 timer.start()
@@ -69,21 +67,21 @@ def handle_socket():
                 continue
             # else handle the legal commands:
             elif command == Command.DATA or command == Command.GOODBYE:
-                expected = sessions[session_id]
+                expected = sessions[session_id][0]
                 # if there are lost packets, note them and then continue normally
                 if (seq_num > expected):
-                    for i in range (sessions[session_id] + 1, seq_num, 1):
+                    for i in range (sessions[session_id][0] + 1, seq_num, 1):
                         print('%s [%d] Lost packet!' % (hex(session_id), i))
                         lost += 1
                     expected = seq_num
 
                 # if a valid sequence number, continue: 
                 if (seq_num == expected or seq_num == 0):
-                    sessions[session_id] = seq_num + 1
+                    sessions[session_id][0] = seq_num + 1
                     respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost)
                     server_seq_num += 1
 
-                    # NOTE: restart timer (should we cancel here?)
+                    # restart timer
                     timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
                     timers[session_id] = timer
                     timer.start()
@@ -101,8 +99,11 @@ def handle_keyboard():
     while True:
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
-            print("EXITING") #MUST be graceful
-            return None
+            # NOTE: currently working on graceful exit
+            for session_id sessions.keys():
+                clientAddress = sessions[session_id][1]
+                close_session(sessions, session_id, server_seq_num, clientAddress)
+            print('Server shutdown')
     
 
 if __name__ == '__main__':
@@ -112,10 +113,10 @@ if __name__ == '__main__':
     serverSocket.bind((b'0.0.0.0', serverPort))
     print('Waiting on port %d...' % serverPort)
 
-    t1 = Thread(target=handle_socket, daemon=True)
+    sessions = {}
+    t1 = Thread(target=handle_socket, args=(sessions), daemon=True)
     t1.start()
 
-    handle_keyboard()
+    handle_keyboard(sessions)
     # serverSocket.shutdown(socket.SHUT_WR)
     serverSocket.close()
-    exit()
