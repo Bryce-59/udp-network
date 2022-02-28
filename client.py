@@ -1,6 +1,5 @@
 # TODO: Thread-based mock client with at least 2 threads
-#           TODO: implement timer
-#           TODO: make sure the program closes out correctly when server sends "GOODBYE"
+#           TODO: timer does not properly close out
 # TODO: Event-loop based mock client using pyuv (Note listening to event 1 and event 2 is done by a single thread)
 #           event 1: keyboard
 #           event 2: socket
@@ -55,8 +54,11 @@ def handle_keyboard(seq_num):
         seq_num += 1
 
 def close_session():
-    clientSocket.shutdown(SHUT_WR)
-    clientSocket.close()
+    try:
+        clientSocket.shutdown(SHUT_WR)
+        clientSocket.close()
+    except:
+        pass
     exit()
 
 def handle_socket():
@@ -69,7 +71,7 @@ def handle_socket():
 
         timer.cancel()
         if (command != Command.ALIVE):
-            close_session
+            close_session()
             
 
 
