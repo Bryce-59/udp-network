@@ -95,12 +95,12 @@ def handle_socket(sessions):
         close_session(sessions, session_id, server_seq_num, clientAddress)
         server_seq_num += 1
 
-def handle_keyboard():
+def handle_keyboard(sessions):
     while True:
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
             # NOTE: currently working on graceful exit
-            for session_id sessions.keys():
+            for session_id in sessions.keys():
                 clientAddress = sessions[session_id][1]
                 close_session(sessions, session_id, server_seq_num, clientAddress)
             print('Server shutdown')
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     print('Waiting on port %d...' % serverPort)
 
     sessions = {}
-    t1 = Thread(target=handle_socket, args=(sessions), daemon=True)
+    t1 = Thread(target=handle_socket, args=(sessions,), daemon=True)
     t1.start()
 
     handle_keyboard(sessions)

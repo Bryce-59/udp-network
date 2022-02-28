@@ -10,11 +10,11 @@
 
 from message import *
 import random
+import socket
 from socket import *
 import sys
 import threading
 from threading import *
-
 
 serverName = 'descartes.cs.utexas.edu'
 serverPort = 5000
@@ -28,8 +28,6 @@ def receive():
     modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
     return unpack_message(modifiedMessage)
 
-
-
 """
 A function that accepts a command, sequence number, and (if command == Command.DATA)
 a string to append.
@@ -41,8 +39,7 @@ def handshake(session_id):
     _, _, command, _, _, _ = receive()
 
     if (command != Command.HELLO):
-        clientSocket.close()
-        exit()
+        close_session()
     return command
 
 def handle_keyboard(seq_num):
@@ -50,25 +47,31 @@ def handle_keyboard(seq_num):
         data = sys.stdin.readline()
         if (not data or (data == "q\n" and sys.stdin.isatty())):
             rcv_cmd = send(Command.GOODBYE, seq_num, session_id, None)
-            clientSocket.close()
-            exit()
+            close_session()
         else:
             message = pack_message(Command.DATA, seq_num, session_id, data)
             clientSocket.sendto(message,(serverName, serverPort))
         
         seq_num += 1
 
+def close_session():
+    clientSocket.shutdown(SHUT_WR)
+    clientSocket.close()
+    exit()
+
 def handle_socket():
     while True:
+        timer = threading.Timer(5, close_session)
+        timer.start()
         magic, version, command, sequence, session_id, data = receive()
         if (command == Command.GOODBYE):
             print('closing client')
-            clientSocket.shutdown()
-            clientSocket.close()
-            exit()
-        elif (command != Command.ALIVE):
-            clientSocket.close()
-            exit()
+
+        timer.cancel()
+        if (command != Command.ALIVE):
+            close_session
+            
+
 
 if __name__ == '__main__':
     seq_num = 0
