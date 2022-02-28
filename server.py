@@ -1,5 +1,4 @@
-# TODO: Test that conditional logic still works
-# TODO: Implement "Graceful Exit" (may involve making sessions a global variable)
+# TODO: Implement "Graceful Exit"
 
 from message import *
 import socket
@@ -20,14 +19,15 @@ def close_session(sessions, session_id, server_seq_num, clientAddress):
 '''
 Helper function which handles the DATA and GOODBYE commands 
 '''
-def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data):
+def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost):
     if command == Command.DATA:
-        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
+        print('%s , %s [%d] %s' % (lost, hex(session_id), seq_num, data.decode('UTF-8')), end='')
         response = pack_message(Command.ALIVE, server_seq_num, session_id)
         serverSocket.sendto(response, clientAddress)
     else:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
-        close_session(sessions, session_id, server_seq_num, clientAddress)
+        print(lost)
+        close_session(sessions, session_id, server_seq_num, clientAddress, lost)
         print('%s Session closed' % hex(session_id))
 
 
@@ -35,6 +35,7 @@ def handle_socket():
     server_seq_num = 0
     sessions = {}
     timers = {}
+    lost = 0
 
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
@@ -73,12 +74,13 @@ def handle_socket():
                 if (seq_num > expected):
                     for i in range (sessions[session_id] + 1, seq_num, 1):
                         print('%s [%d] Lost packet!' % (hex(session_id), i))
+                        lost += 1
                     expected = seq_num
 
                 # if a valid sequence number, continue: 
                 if (seq_num == expected or seq_num == 0):
                     sessions[session_id] = seq_num + 1
-                    respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data)
+                    respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost)
                     server_seq_num += 1
 
                     # NOTE: restart timer (should we cancel here?)
@@ -91,6 +93,7 @@ def handle_socket():
                     print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
                     continue
         # if the code reaches here, there was a protocol error 
+        print(lost)
         close_session(sessions, session_id, server_seq_num, clientAddress)
         server_seq_num += 1
 

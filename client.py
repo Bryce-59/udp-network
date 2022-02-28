@@ -1,6 +1,12 @@
-# TODO: Implement client-side Timer
-# TODO: Remove stop-and-wait handling for non-HELLO messages (EX2 Q2)
-# TODO: Server will not recieve GOODBYE until AFTER it tries to send a message (does not shut down automatically)
+# TODO: Thread-based mock client with at least 2 threads
+#           thread 1: reads from keyboard
+#           thread 2: listen to socket and actually receives server messages (doesn’t have to do anything… with it)
+# TODO: Event-loop based mock client using pyuv (Note listening to event 1 and event 2 is done by a single thread)
+#           event 1: keyboard
+#           event 2: socket
+# TODO: ONE of the above must be implemented COMPLETELY, the other can be incomplete
+# TODO: Record with Dostoyevsky.txt
+# TODO: Complete client-side Design Doc 50%
 
 from message import *
 import random
@@ -45,13 +51,14 @@ if __name__ == '__main__':
             clientSocket.close()
             exit()
         else:
-            rcv_cmd = send_and_receive(Command.DATA, seq_num, session_id, data)
+            message = pack_message(Command.DATA, seq_num, session_id, data)
+            clientSocket.sendto(message,(serverName, serverPort))
         
         seq_num += 1
-        if (rcv_cmd == Command.GOODBYE):
+        '''if (rcv_cmd == Command.GOODBYE):
             print('closing client')
             clientSocket.close()
             exit()
         elif (rcv_cmd != Command.ALIVE):
             clientSocket.close()
-            exit()
+            exit()'''
