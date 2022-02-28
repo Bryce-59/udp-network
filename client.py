@@ -1,6 +1,6 @@
 # TODO: Thread-based mock client with at least 2 threads
-#           thread 1: reads from keyboard
-#           thread 2: listen to socket and actually receives server messages (doesn’t have to do anything… with it)
+#           TODO: implement timer
+#           TODO: make sure the program closes out correctly when server sends "GOODBYE"
 # TODO: Event-loop based mock client using pyuv (Note listening to event 1 and event 2 is done by a single thread)
 #           event 1: keyboard
 #           event 2: socket
@@ -12,12 +12,23 @@ from message import *
 import random
 from socket import *
 import sys
+import threading
+from threading import *
 
 
 serverName = 'descartes.cs.utexas.edu'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
-session_id = random.randint(0,(2**31) - 1)
+
+def send(command, seq_num, session_id, data=None):
+    message = pack_message(command, seq_num, session_id, data)
+    clientSocket.sendto(message,(serverName, serverPort))
+
+def receive():
+    modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+    return unpack_message(modifiedMessage)
+
+
 
 """
 A function that accepts a command, sequence number, and (if command == Command.DATA)
@@ -25,29 +36,20 @@ a string to append.
 The function packs and transmits the message to the server, and waits for a response.
 This response is then analyzed and then, if valid, the command is returned.
 """
-def send_and_receive(command, seq_num, session_id, data=None):
-    message = pack_message(command, seq_num, session_id, data)
-    clientSocket.sendto(message,(serverName, serverPort))
-    
-    modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
-    magic, version, command, seq_num, session_id, response = unpack_message(modifiedMessage)
-    return command
+def handshake(session_id):
+    send(Command.HELLO, 0, session_id)
+    _, _, command, _, _, _ = receive()
 
-if __name__ == '__main__':
-
-    seq_num = 0
-    # Handshake start
-    rcv_cmd = send_and_receive(Command.HELLO, seq_num, session_id)
-    seq_num += 1
-    if (rcv_cmd != Command.HELLO):
+    if (command != Command.HELLO):
         clientSocket.close()
         exit()
-    # Handshake end
+    return command
 
+def handle_keyboard(seq_num):
     while True:
         data = sys.stdin.readline()
         if (not data or (data == "q\n" and sys.stdin.isatty())):
-            rcv_cmd = send_and_receive(Command.GOODBYE, seq_num, session_id, None)
+            rcv_cmd = send(Command.GOODBYE, seq_num, session_id, None)
             clientSocket.close()
             exit()
         else:
@@ -55,10 +57,29 @@ if __name__ == '__main__':
             clientSocket.sendto(message,(serverName, serverPort))
         
         seq_num += 1
-        '''if (rcv_cmd == Command.GOODBYE):
+
+def handle_socket():
+    while True:
+        magic, version, command, sequence, session_id, data = receive()
+        if (command == Command.GOODBYE):
             print('closing client')
+            clientSocket.shutdown()
             clientSocket.close()
             exit()
-        elif (rcv_cmd != Command.ALIVE):
+        elif (command != Command.ALIVE):
             clientSocket.close()
-            exit()'''
+            exit()
+
+if __name__ == '__main__':
+    seq_num = 0
+    session_id = random.randint(0,(2**31) - 1)
+
+    # Handshake start
+    handshake(session_id)
+    seq_num += 1
+    # Handshake end
+
+    t1 = Thread(target=handle_socket, daemon=True)
+    t1.start()
+
+    handle_keyboard(seq_num)

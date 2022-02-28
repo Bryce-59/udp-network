@@ -21,12 +21,12 @@ Helper function which handles the DATA and GOODBYE commands
 '''
 def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost):
     if command == Command.DATA:
-        print('%s , %s [%d] %s' % (lost, hex(session_id), seq_num, data.decode('UTF-8')), end='')
+        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
         response = pack_message(Command.ALIVE, server_seq_num, session_id)
         serverSocket.sendto(response, clientAddress)
     else:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
-        print(lost)
+        # print(lost)
         close_session(sessions, session_id, server_seq_num, clientAddress, lost)
         print('%s Session closed' % hex(session_id))
 
@@ -93,7 +93,7 @@ def handle_socket():
                     print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
                     continue
         # if the code reaches here, there was a protocol error 
-        print(lost)
+        # print(lost)
         close_session(sessions, session_id, server_seq_num, clientAddress)
         server_seq_num += 1
 
