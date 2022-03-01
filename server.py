@@ -118,5 +118,5 @@ if __name__ == '__main__':
     t1.start()
 
     handle_keyboard(sessions)
-    # serverSocket.shutdown(socket.SHUT_WR)
+    serverSocket.shutdown(SHUT_WR)
     serverSocket.close()
