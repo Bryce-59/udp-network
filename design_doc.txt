@@ -146,12 +146,38 @@ Partner B: Tyler Miller
 
 
     Any libraries used
-    List any libraries that you used and justify the usage.
+        List any libraries that you used and justify the usage.
+
+            - random : we used random to generate the random 
+            session id
+            - socket : we used the socket library because the 
+            client communicates with the server via socket
+            - sys : we used the sys library solely to read 
+            input and test whether it was from a tty or not
+            - threading : we used the threading library 
+            because we used a multiple threads in our client
+            (only the thread-based client)
+
     Corner cases identified
-    Describe corner cases that you identified and how you handled them.
+        Describe corner cases that you identified and how you handled them.
+        
 4. Client Testing
-Testing your client
-Describe how you tested your client. Include the description of each test case and the setting (such as local only, one local one remote, how many clients, use of mock server, etc.). 
+    Testing your client
+        Describe how you tested your client. Include the description of
+        each test case and the setting (such as local only, one local one
+        remote, how many clients, use of mock server, etc.). 
+
+            - We tested the client using Dostoyevsky.txt
+                - At UTCS/UTCS (same computer) the loss rate was 93.5%. 
+                This is a pretty high amount, so we will spend the week 
+                looking for ways to reduce this.
+                - Compare this to our barebones server, where the loss rate 
+                was 63.4% with the current thread-based client. We will be 
+                investigating this difference soon.
+            - In all other environments we tested, we found no discrepancies
+            in the performance. However, there is a bug that crashes the code
+            when it receives certain input, which we will be working to fix.
+
 
 5. Reflection
 Reflection on the process
