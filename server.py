@@ -104,6 +104,7 @@ def handle_keyboard(sessions):
                 clientAddress = sessions[session_id][1]
                 close_session(sessions, session_id, server_seq_num, clientAddress)
             print('Server shutdown')
+            break
     
 
 if __name__ == '__main__':
