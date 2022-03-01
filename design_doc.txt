@@ -116,16 +116,39 @@ Partner B: Tyler Miller
     Describe the overall client design. Specify any differences between event-loop based client design and thread-based client design. You must include the number of threads you create including the main thread, what each thread is for and doing, any loops you have for each thread (and do this for both event-loop and thread-based client). 
     Justification
     Justify why your design above is efficient. Also show evidence how your client can handle sending packets from a large file (each line is close to UDP packet max and also contains many lines) and receiving packets from the server at the same time. Note you do not want to cause the false TIMEOUT from server because you are too busy just sending out the packets to the server when the server actually has sent you a packet before the TIMEOUT.
+    
     Data structures
-    List any notable data structures you used and justify the use of the data structure. Also specify how you handle synchronization for the data structure if there were any need for synchronization.
+
+        List any notable data structures you used and justify the use of the data structure. 
+        Also specify how you handle synchronization for the data structure if there were any need 
+        for synchronization.
+
+            - We did not utilize any notable data structures. As of yet, we have not needed a special
+            data structure to implement the required functionality.
+
+
     How timeouts are handled
-    Describe how the timeouts are handled.
+
+        Describe how the timeouts are handled.
+
+            - We start a timer immediately before we begin waiting on the response from the server. If we 
+            don't receive a response in 5 seconds, we close the session. Once we receive the response from 
+            the server, we cancel the timer before restarting it and repeating the process.
+
+
     How shutdown is handled
-Describe how you handled the shutdown gracefully. (That is when you hit 'q' or ctrl+d in the command prompt.)
-Any libraries used
-List any libraries that you used and justify the usage.
-Corner cases identified
-Describe corner cases that you identified and how you handled them.
+
+        Describe how you handled the shutdown gracefully. (That is when you hit 'q' or 
+        ctrl+d in the command prompt.)
+
+            - We plan on, upon receiving 'q' or 'eof' from the command prompt, sending GOODBYE to the server
+            before terminating the client process.
+
+
+    Any libraries used
+    List any libraries that you used and justify the usage.
+    Corner cases identified
+    Describe corner cases that you identified and how you handled them.
 4. Client Testing
 Testing your client
 Describe how you tested your client. Include the description of each test case and the setting (such as local only, one local one remote, how many clients, use of mock server, etc.). 
