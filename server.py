@@ -6,32 +6,42 @@ import sys
 import threading
 from threading import *
 
+# a global counter incremented when a command is sent
+SERVER_SEQ = 0
+
+'''
+Helper function that sends a command to a session that belongs
+to clientAddress
+'''
+def send_message(command, session_id, clientAddress):
+    global SERVER_SEQ
+    response = pack_message(command, SERVER_SEQ, session_id)
+    serverSocket.sendto(response, clientAddress)
+    SERVER_SEQ = SERVER_SEQ + 1
+
 '''
 Helper function that closes a session with id == session_id
 '''
-def close_session(sessions, session_id, server_seq_num, clientAddress):
+def close_session(sessions, session_id, clientAddress):
     if session_id in sessions:
         sessions.pop(session_id)
-    response = pack_message(Command.GOODBYE, server_seq_num, session_id)
-    serverSocket.sendto(response, clientAddress)
+    send_message(Command.GOODBYE, session_id, clientAddress)
     
 '''
 Helper function which handles the DATA and GOODBYE commands 
 '''
-def respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost):
+def respond_to_command(sessions, session_id, clientAddress, command, seq_num, data, lost):
     if command == Command.DATA:
         print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
-        response = pack_message(Command.ALIVE, server_seq_num, session_id)
-        serverSocket.sendto(response, clientAddress)
+        send_message(Command.ALIVE, session_id, clientAddress)
     else:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
         # print(lost)
-        close_session(sessions, session_id, server_seq_num, clientAddress)
+        close_session(sessions, session_id, clientAddress)
         print('%s Session closed' % hex(session_id))
 
 
 def handle_socket(sessions):
-    server_seq_num = 0
     timers = {}
     lost = 0
 
@@ -52,11 +62,9 @@ def handle_socket(sessions):
             if command == Command.HELLO and seq_num == 0:
                 print('%s [%d] Session created' % (hex(session_id), seq_num))
                 sessions[session_id] = [seq_num, clientAddress]
-                response = pack_message(Command.HELLO, server_seq_num, session_id)
-                serverSocket.sendto(response, clientAddress)
-                server_seq_num += 1
+                send_message(Command.HELLO, session_id, clientAddress)
                 # start timer
-                timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
+                timer = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
                 timers[session_id] = timer
                 timer.start()
                 continue
@@ -78,11 +86,10 @@ def handle_socket(sessions):
                 # if a valid sequence number, continue: 
                 if (seq_num == expected or seq_num == 0):
                     sessions[session_id][0] = seq_num + 1
-                    respond_to_command(sessions, session_id, server_seq_num, clientAddress, command, seq_num, data, lost)
-                    server_seq_num += 1
+                    respond_to_command(sessions, session_id, clientAddress, command, seq_num, data, lost)
 
                     # restart timer
-                    timer = threading.Timer(5, close_session, [sessions, session_id, server_seq_num, clientAddress])
+                    timer = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
                     timers[session_id] = timer
                     timer.start()
                     continue
@@ -92,23 +99,10 @@ def handle_socket(sessions):
                     continue
         # if the code reaches here, there was a protocol error 
         # print(lost)
-        close_session(sessions, session_id, server_seq_num, clientAddress)
-        server_seq_num += 1
-
-def handle_keyboard(sessions):
-    while True:
-        text = sys.stdin.readline()
-        if (not text or (text == "q\n" and sys.stdin.isatty())):
-            # NOTE: currently working on graceful exit
-            for session_id in sessions.keys():
-                clientAddress = sessions[session_id][1]
-                close_session(sessions, session_id, server_seq_num, clientAddress)
-            print('Server shutdown')
-            break
-    
+        close_session(sessions, session_id, clientAddress)
 
 if __name__ == '__main__':
-
+    # set up server and port
     serverPort = 5000
     serverSocket = socket(AF_INET, SOCK_DGRAM)
     serverSocket.bind((b'0.0.0.0', serverPort))
@@ -117,7 +111,13 @@ if __name__ == '__main__':
     sessions = {}
     t1 = Thread(target=handle_socket, args=(sessions,), daemon=True)
     t1.start()
-
-    handle_keyboard(sessions)
-    serverSocket.shutdown(SHUT_WR)
+    while True:
+        text = sys.stdin.readline()
+        if (not text or (text == "q\n" and sys.stdin.isatty())):
+            # close out of every session
+            print('Server shutdown')
+            for session_id in sessions.keys():
+                clientAddress = sessions[session_id][1]
+                close_session(sessions, session_id, clientAddress)
+            break
     serverSocket.close()
