@@ -1,3 +1,4 @@
+# TODO: turn timeout back on once it has been fixed for tclient
 
 from message import *
 import socket

@@ -95,24 +95,26 @@ def handle_socket():
     shutdown_time.set()
 
 if __name__ == '__main__':
+    serverName = gethostbyname("descartes.cs.utexas.edu")
+    serverPort = 5000
+    
     session_id = random.randint(0x00000000, 0xFFFFFFFF)
 
     # Set up the event loop
     loop = pyuv.Loop.default_loop()
-    clientSocket  = pyuv.UDP(loop)
+    client  = pyuv.UDP(loop)
     clientTTY = pyuv.TTY(loop, sys.stdin.fileno(), True)
     Timer = pyuv.Timer(loop)
 
     # Handshake start
-    firstPacket = send(Command.HELLO, 0, session_id)
-    # client.start_recv(receive)
-    # client.send((address, portNum), firstPacket)
-    # FSA = HELLO_WAIT
+    firstPacket = pack_message(Command.HELLO, 0, session_id)
+    client.start_recv(handle_keyboard)
+    client.send((serverName, serverPort), firstPacket)
 
     # Start the event loop
-    Timer.start(TimerGoodbye, 5.0, 0)    
-    clientSocket.start_recv(handle_keyboard)
+    Timer.start(close_session, 5.0, 0)
     clientTTY.start_read(handle_socket)
+    
     loop.run()
 
     # Wait for shutdown and close out
