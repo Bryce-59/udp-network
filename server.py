@@ -30,20 +30,18 @@ def close_session(sessions, session_id, clientAddress):
 '''
 Helper function which handles the DATA and GOODBYE commands 
 '''
-def respond_to_command(sessions, session_id, clientAddress, command, seq_num, data, lost):
+def respond_to_command(sessions, session_id, clientAddress, command, seq_num, data):
     if command == Command.DATA:
         print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
         send_message(Command.ALIVE, session_id, clientAddress)
     else:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
-        # print(lost)
         close_session(sessions, session_id, clientAddress)
         print('%s Session closed' % hex(session_id))
 
 
 def handle_socket(sessions):
     timers = {}
-    lost = 0
 
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
@@ -80,13 +78,12 @@ def handle_socket(sessions):
                 if (seq_num > expected):
                     for i in range (sessions[session_id][0] + 1, seq_num, 1):
                         print('%s [%d] Lost packet!' % (hex(session_id), i))
-                        lost += 1
                     expected = seq_num
 
                 # if a valid sequence number, continue: 
                 if (seq_num == expected or seq_num == 0):
                     sessions[session_id][0] = seq_num + 1
-                    respond_to_command(sessions, session_id, clientAddress, command, seq_num, data, lost)
+                    respond_to_command(sessions, session_id, clientAddress, command, seq_num, data)
 
                     # restart timer
                     timer = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
@@ -97,8 +94,7 @@ def handle_socket(sessions):
                 elif (seq_num == expected - 1):
                     print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
                     continue
-        # if the code reaches here, there was a protocol error 
-        # print(lost)
+        # if the code reaches here, there was a protocol error
         close_session(sessions, session_id, clientAddress)
 
 if __name__ == '__main__':
