@@ -113,7 +113,7 @@ if __name__ == '__main__':
         if (not text or (text == "q\n" and sys.stdin.isatty())):
             # close out of every session
             print('Server shutdown')
-            for session_id in sessions.keys():
+            for session_id in list(sessions):
                 clientAddress = sessions[session_id][1]
                 close_session(sessions, session_id, clientAddress)
             break
