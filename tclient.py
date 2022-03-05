@@ -1,6 +1,5 @@
-# TODO: Client should stop accepting input when it shuts down due to timeout
-# TODO: Client should be able to timeout when in handshake (currently does not work)
 # TODO: Client should check magic number, version number, and session_id when receiving packages
+# TODO: Implement timeout (currently does not work, period)
 
 # import main_client
 # from main_client import *
@@ -16,21 +15,24 @@ serverName = 'descartes.cs.utexas.edu'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 shutdown_time = threading.Event()
+timer = None
 
 def send(command, seq_num, session_id, data=None):
     message = pack_message(command, seq_num, session_id, data)
     clientSocket.sendto(message,(serverName, serverPort))
+    timer.start()
 
 def receive():
     modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+    timer.cancel()
     return unpack_message(modifiedMessage)
 
 def close_session():
     try:
         clientSocket.shutdown(SHUT_WR)
-        clientSocket.close()
     except:
         pass
+    clientSocket.close()
     exit()
 
 def handle_keyboard(session_id):
@@ -38,7 +40,7 @@ def handle_keyboard(session_id):
     while True:
         data = sys.stdin.readline()
         if (not data or (data == "q\n" and sys.stdin.isatty())):
-            rcv_cmd = send(Command.GOODBYE, seq_num, session_id, None)
+            send(Command.GOODBYE, seq_num, session_id, None)
             break
         else:
             message = pack_message(Command.DATA, seq_num, session_id, data)
@@ -48,10 +50,7 @@ def handle_keyboard(session_id):
 
 def handle_socket():
     while True:
-        timer = threading.Timer(5, close_session)
-        timer.start()
         magic, version, command, sequence, session_id, data = receive()
-        timer.cancel()
         if (command == Command.GOODBYE):
             print('closing client')
         if (command != Command.ALIVE):
@@ -60,23 +59,19 @@ def handle_socket():
 
 if __name__ == '__main__':
     session_id = random.randint(0x00000000, 0xFFFFFFFF)
+    timer = threading.Timer(5, close_session)
 
     # Handshake start
     send(Command.HELLO, 0, session_id)
-    timer = threading.Timer(5, close_session)
-    timer.start()
     _, _, command, _, _, _ = receive()
-    timer.cancel()
 
-    if (command != Command.HELLO):
-        close_session()
+    if (command == Command.HELLO):
+        # Start the main function
+        t1 = Thread(target=handle_socket, daemon=True)
+        t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
+        t1.start()
+        t2.start()
 
-    # Start the main function
-    t1 = Thread(target=handle_socket, daemon=True)
-    t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
-    t1.start()
-    t2.start()
-
-    # Wait for shutdown and close out
-    shutdown_time.wait()
+        # Wait for shutdown and close out
+        shutdown_time.wait()
     close_session()

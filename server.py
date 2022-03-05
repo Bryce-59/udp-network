@@ -7,17 +7,17 @@ import threading
 from threading import *
 
 # a global counter incremented when a command is sent
-SERVER_SEQ = 0
+server_seq = 0
 
 '''
 Helper function that sends a command to a session that belongs
 to clientAddress
 '''
 def send_message(command, session_id, clientAddress):
-    global SERVER_SEQ
-    response = pack_message(command, SERVER_SEQ, session_id)
+    global server_seq
+    response = pack_message(command, server_seq, session_id)
     serverSocket.sendto(response, clientAddress)
-    SERVER_SEQ = SERVER_SEQ + 1
+    server_seq = server_seq + 1
 
 '''
 Helper function that closes a session with id == session_id
@@ -64,7 +64,7 @@ def handle_socket(sessions):
                 # start timer
                 timer = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
                 timers[session_id] = timer
-                timer.start()
+                # timer.start()
                 continue
         # if the session is known, respond accordingly:
         else:
@@ -88,7 +88,7 @@ def handle_socket(sessions):
                     # restart timer
                     timer = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
                     timers[session_id] = timer
-                    timer.start()
+                    # timer.start()
                     continue
                 # otherwise there is a duplicate and you should ignore
                 elif (seq_num == expected - 1):
