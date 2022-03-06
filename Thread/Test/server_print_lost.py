@@ -1,7 +1,3 @@
-#!/usr/bin/env python3 
-
-# TODO: ask about two edge casesa
-
 from packet import *
 import socket
 from socket import *
@@ -54,15 +50,15 @@ def respond_to_command(sessions, session_id, clientAddress, command, seq_num, da
 Helper function which processes valid P0P packets
 
 Corner cases -
+    Ignore   | command == HELLO (non-zero seq_num)
+    Goodbye  | command == ALIVE
+
     Continue | seq_num > expected value (lost)
     Ignore   | seq_num == expected value - 1 (duplicate)
-    Goodbye  | seq_num < expected value - 1 and seq_num != 0 (out-of-order)
-
-    if seq_num >= expected value or seq_num == 0 (valid):
-        Goodbye  | command == HELLO (out-of-order) [from: P0P spec]
-        Goodbye  | command == ALIVE
+    Goodbye  | seq_num < expected value - 1 && seq_num != 0 (out-of-order)
 '''
 def check_command(sessions, session_id, clientAddress, command, seq_num, data, timers):
+    if command != Command.HELLO: #check this!!! <<<<<<<<<<<<<<<<<<<<
         # Scenario A: A valid FSA transition exists
         if command == Command.DATA or command == Command.GOODBYE:
             expected_seq = sessions[session_id][0]
@@ -86,22 +82,10 @@ def check_command(sessions, session_id, clientAddress, command, seq_num, data, t
             # Scenario A4: The sequence number is too small
             # (Terminate the session as this is invalid)
             else:
-                close_session(sessions, session_id, clientAddress)
+                close_session(sessions, session_id, client_address)
         # Scenario B: No valid FSA transition exists
         else:
             close_session(sessions, session_id, clientAddress)
-
-'''
-Helper function to create a new session
-'''
-def create_session(sessions, session_id, clientAddress, command, seq_num, timers):
-    print('%s [%d] Session created' % (hex(session_id), seq_num))
-    sessions[session_id] = [seq_num, clientAddress]
-    send(Command.HELLO, session_id, clientAddress)
-    
-    # start initial timer
-    timers[session_id] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
-    timers[session_id].start()
 
 '''
 The main socket loop
@@ -110,8 +94,7 @@ Corner cases -
     Ignore   | packet < 12 bytes (not P0P packet)
     Ignore   | magic != MAGIC or version != VERSION
     Ignore   | session_id is valid but the IP:port is not
-    Ignore   | an unknown client sends HELLO with a non-zero sequence number
-    Ignore   | an unknown client sends something other than HELLO [from: P0P spec]
+    ???      | session_id has not been seen before, but command is not HELLO 
 '''
 def handle_socket(sessions):
     MIN_SIZE = 12
@@ -124,8 +107,15 @@ def handle_socket(sessions):
             if magic == MAGIC and version == VERSION:
                 if session_id not in sessions:
                     if command == Command.HELLO and seq_num == 0:
-                        create_session(sessions, session_id, clientAddress, command, seq_num, timers)
-                    else:
+                        print('%s [%d] Session created' % (hex(session_id), seq_num))
+                        sessions[session_id] = [seq_num, clientAddress]
+                        send(Command.HELLO, session_id, clientAddress)
+                        
+                        # start initial timer
+                        timers[session_id] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
+                        timers[session_id].start()
+                    else: 
+                        # what do we do if "session_id not in sessions" and "command !=  HELLO"??? <<<<
                         pass
                 else:
                     if clientAddress == sessions[session_id][1]:

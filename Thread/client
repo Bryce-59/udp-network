@@ -1,10 +1,10 @@
+#!/usr/bin/env python3 
+
 # TODO: Client should check magic number, version number, and session_id when receiving packages
 # TODO: close_session does not work (for some reason-- this is why timeout fails)
 
-# import main_client
-# from main_client import *
 import random
-from message import *
+from packet import *
 import socket
 from socket import *
 import sys
@@ -13,24 +13,24 @@ from threading import *
 
 import os
 
-serverName = 'descartes.cs.utexas.edu'
-serverPort = 5000
+serverName = None
+serverPort = None
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 shutdown_time = threading.Event()
 timer = None
 
 def send(command, seq_num, session_id, data=None):
-    message = pack_message(command, seq_num, session_id, data)
-    clientSocket.sendto(message,(serverName, serverPort))
+    packet = wrap_packet(command, seq_num, session_id, data)
+    clientSocket.sendto(packet,(serverName, serverPort))
     try:
         timer.start()
     except:
         pass
 
 def receive():
-    modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+    packet, serverAddress = clientSocket.recvfrom(2048)
     timer.cancel()
-    return unpack_message(modifiedMessage)
+    return unwrap_packet(packet)
 
 def close_session():
     try:
@@ -38,7 +38,6 @@ def close_session():
     except:
         pass
     clientSocket.close()
-    # exit()
     os._exit(0)
 
 def handle_keyboard(session_id):
