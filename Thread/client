@@ -1,7 +1,8 @@
 #!/usr/bin/env python3 
 
-# TODO: Client should check magic number, version number, and session_id when receiving packages
-# TODO: close_session does not work (for some reason-- this is why timeout fails)
+# TODO: What happens when MAGIC or VERSION fail?
+# TODO: What happens when packet size < 12?
+# TODO: Why is time.sleep so SLOW?
 
 import random
 from packet import *
@@ -10,6 +11,7 @@ from socket import *
 import sys
 import threading
 from threading import *
+import time
 
 import os
 
@@ -17,19 +19,14 @@ serverName = None
 serverPort = None
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 shutdown_time = threading.Event()
-timer = None
+alive_rcv = False
 
 def send(command, seq_num, session_id, data=None):
     packet = wrap_packet(command, seq_num, session_id, data)
     clientSocket.sendto(packet,(serverName, serverPort))
-    try:
-        timer.start()
-    except:
-        pass
 
 def receive():
     packet, serverAddress = clientSocket.recvfrom(2048)
-    timer.cancel()
     return unwrap_packet(packet)
 
 def close_session():
@@ -38,7 +35,21 @@ def close_session():
     except:
         pass
     clientSocket.close()
-    os._exit(0)
+
+def timer_goodbye():
+    timeout = 5
+    cycles = 1000
+    
+    i = 0
+    while i < timeout * cycles / 5: # way too slow, using a magic number
+        time.sleep(timeout / cycles)
+        if (alive_rcv):
+            i = 0
+        else:
+            i += 1
+    close_session()
+    shutdown_time.set()
+
 
 def handle_keyboard(session_id):
     seq_num = 1
@@ -49,6 +60,9 @@ def handle_keyboard(session_id):
             break
         else:
             send(Command.DATA, seq_num, session_id, data)
+            global alive_rcv
+            alive_rcv = False
+
         seq_num += 1
     shutdown_time.set()
 
@@ -59,27 +73,45 @@ def handle_socket():
             print('closing client')
         if (command != Command.ALIVE):
             break
+        else:
+            global alive_rcv
+            alive_rcv = True
     shutdown_time.set()
+
+'''
+The main socket loop
+
+Corner cases -
+    ???      | packet < 12 bytes (not P0P packet)
+    ???      | magic != MAGIC or version != VERSION
+    Goodbye  | server sends incorrect session id
+'''
+def start_client(session_id):
+    timer = Thread(target=timer_goodbye, daemon=True)
+    timer.start()
+    send(Command.HELLO, 0, session_id)
+    
+    magic, version, command, _, rcv_id, _ = receive()
+    if command == Command.HELLO and rcv_id == session_id:
+        global alive_rcv
+        alive_rcv = True
+
+        # Start the main running threads
+        t1 = Thread(target=handle_socket, daemon=True)
+        t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
+        t1.start()
+        t2.start()
+    else:
+        shutdown_time.set()
 
 if __name__ == '__main__':
     serverName = sys.argv[1]
     serverPort = int(sys.argv[2])
     
     session_id = random.randint(0x00000000, 0xFFFFFFFF)
-    timer = threading.Timer(5, close_session)
-    timer.start()
 
-    # Handshake start
-    send(Command.HELLO, 0, session_id)
-    _, _, command, _, _, _ = receive()
-
-    if (command == Command.HELLO):
-        # Start the main function
-        t1 = Thread(target=handle_socket, daemon=True)
-        t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
-        t1.start()
-        t2.start()
-
-        # Wait for shutdown and close out
-        shutdown_time.wait()
+    # Start
+    t0 = Thread(target=start_client, args=(session_id,), daemon=True)
+    t0.start()
+    shutdown_time.wait()
     close_session()

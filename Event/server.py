@@ -1,9 +1,6 @@
 #!/usr/bin/env python3 
 
-# TODO: ask about two edge casesa
-
 from packet import *
-import socket
 from socket import *
 import sys
 import threading

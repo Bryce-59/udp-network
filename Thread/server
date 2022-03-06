@@ -1,7 +1,5 @@
 #!/usr/bin/env python3 
 
-# TODO: ask about two edge casesa
-
 from packet import *
 from socket import *
 import sys
