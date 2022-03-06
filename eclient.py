@@ -1,7 +1,4 @@
-# TODO: finish implementing the event-loop using pyuv
-
-# import main_client
-# from main_client import *
+from enum import IntEnum
 import random
 from message import *
 import socket
@@ -10,112 +7,59 @@ import sys
 import threading
 from threading import *
 import pyuv
+import message
+# TODO: finish implementing the event-loop using pyuv
 
-seq_num = 1
+class FSA(IntEnum):
+    HELLO = 0
+    HELLO_WAIT = 1
 
-def send(command, seq_num, session_id, data=None):
-    message = pack_message(command, seq_num, session_id, data)
-    clientSocket.sendto(message,(serverName, serverPort))
+FSA = FSA.HELLO
+seq_num = 0
 
-def receive():
-    modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
-    return unpack_message(modifiedMessage)
-
-def close_session():
-    try:
-        clientSocket.shutdown(SHUT_WR)
-        clientSocket.close()
-    except:
+def receivePacket(handle, ip_port, flags, data, error):
+    magic, version, command, sequence, session_id, data = unpack_message(data)
+    if (FSA == FSA.HELLO_WAIT):
+        # check if command == HELLO
         pass
-    exit()
-
-def handle_keyboard(session_id):
-    # TODO: set up so it works with pyuv instead of whatever its doing now
-    global seq_num
-    data = sys.stdin.readline()
-    if (not data or (data == "q\n" and sys.stdin.isatty())):
-        rcv_cmd = send(Command.GOODBYE, seq_num, session_id, None)
-        close_session()
-    else:
-        message = pack_message(Command.DATA, seq_num, session_id, data)
-        clientSocket.sendto(message,(serverName, serverPort))
-    seq_num += 1
-
-def handle_socket():
-    # TODO: set up so it works with pyuv instead of whatever its doing now
-    timer = threading.Timer(5, close_session)
-    timer.start()
-    magic, version, command, sequence, session_id, data = receive()
-    timer.cancel()
-    if (command == Command.GOODBYE):
-        print('closing client')
-    if (command != Command.ALIVE):
-        close_session()
-
-# check the next three functions for code that needs to be changed to pyuv
-def send(command, seq_num, session_id, data=None):
-    message = pack_message(command, seq_num, session_id, data)
-    clientSocket.sendto(message,(serverName, serverPort))
-
-def receive():
-    modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
-    return unpack_message(modifiedMessage)
-
-def close_session():
-    try:
-        clientSocket.shutdown(SHUT_WR)
-        clientSocket.close()
-    except:
+    elif (True): # check if in ready state
+        # reset timer if ALIVE, close out if GOODBYE, else protocol error
         pass
-    exit()
+    # protocol error
 
-def handle_keyboard(session_id):
-    seq_num = 1
-    while True:
-        data = sys.stdin.readline()
-        if (not data or (data == "q\n" and sys.stdin.isatty())):
-            rcv_cmd = send(Command.GOODBYE, seq_num, session_id, None)
-            break
-        else:
-            message = pack_message(Command.DATA, seq_num, session_id, data)
-            clientSocket.sendto(message,(serverName, serverPort))
-        seq_num += 1
-    shutdown_time.set()
+def on_tty_read(handle, data, error):
+    if (not data or (data == "q\n" and sys.stdin.isatty())): #sys.stdin may not be correct here
+        # close out
+        pass
+    # else wrap and send the data
 
-def handle_socket():
-    while True:
-        timer = threading.Timer(5, close_session)
-        timer.start()
-        magic, version, command, sequence, session_id, data = receive()
-        timer.cancel()
-        if (command == Command.GOODBYE):
-            print('closing client')
-        if (command != Command.ALIVE):
-            break
-    shutdown_time.set()
+def TimerGoodbye():
+    # close out
+    pass
 
 if __name__ == '__main__':
-    serverName = gethostbyname("descartes.cs.utexas.edu")
-    serverPort = 5000
-    
-    session_id = random.randint(0x00000000, 0xFFFFFFFF)
-
-    # Set up the event loop
+    address = gethostbyname("descartes.cs.utexas.edu")
+    portNum = 5000
     loop = pyuv.Loop.default_loop()
-    client  = pyuv.UDP(loop)
+    client = pyuv.UDP(loop)
     clientTTY = pyuv.TTY(loop, sys.stdin.fileno(), True)
     Timer = pyuv.Timer(loop)
+    # endLoopAsync = pyuv.Async(loop, noCallback)
 
-    # Handshake start
-    firstPacket = pack_message(Command.HELLO, 0, session_id)
-    client.start_recv(handle_keyboard)
-    client.send((serverName, serverPort), firstPacket)
+    #starting the session
+    SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
 
-    # Start the event loop
-    Timer.start(close_session, 5.0, 0)
-    clientTTY.start_read(handle_socket)
+    #sending the first packet and starting the connection
+    firstPacket = pack_message(Command.HELLO, seq_num, SESSION_ID)
+    client.start_recv(receivePacket)
+    client.send((address, portNum), firstPacket)
     
-    loop.run()
+    FSA = FSA.HELLO_WAIT
+    Timer.start(TimerGoodbye, 5.0, 0)
 
-    # Wait for shutdown and close out
+    #start reading input
+    clientTTY.start_read(on_tty_read)
+
+    #start the loop
+    loop.run()
     exit()
