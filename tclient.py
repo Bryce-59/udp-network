@@ -11,6 +11,8 @@ import sys
 import threading
 from threading import *
 
+import os
+
 serverName = 'descartes.cs.utexas.edu'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
@@ -36,7 +38,8 @@ def close_session():
     except:
         pass
     clientSocket.close()
-    exit()
+    # exit()
+    os._exit(0)
 
 def handle_keyboard(session_id):
     seq_num = 1
@@ -62,6 +65,7 @@ def handle_socket():
 if __name__ == '__main__':
     session_id = random.randint(0x00000000, 0xFFFFFFFF)
     timer = threading.Timer(5, close_session)
+    timer.start()
 
     # Handshake start
     send(Command.HELLO, 0, session_id)
