@@ -1,14 +1,20 @@
 from enum import IntEnum
 import random
-from message import *
+from packet import *
 import socket
 from socket import *
 import sys
 import threading
 from threading import *
 import pyuv
-import message
-# TODO: finish implementing the event-loop using pyuv
+
+# TODO: Finish Event-loop client
+
+# vvv READ THIS vvv
+# NOTE: You have to enter the server and the portnumber into the commandline as arguments now.
+# For example, $python3 client.py aristotle.cs.utexas.edu 5000
+# Similarly, for the server, you have to do the portnumber i.e. $python3 5000
+# ^^^ READ THIS ^^^
 
 class FSA(IntEnum):
     HELLO = 0
@@ -18,7 +24,7 @@ FSA = FSA.HELLO
 seq_num = 0
 
 def receivePacket(handle, ip_port, flags, data, error):
-    magic, version, command, sequence, session_id, data = unpack_message(data)
+    magic, version, command, sequence, session_id, data = unwrap_packet(data)
     if (FSA == FSA.HELLO_WAIT):
         # check if command == HELLO
         pass
@@ -50,7 +56,7 @@ if __name__ == '__main__':
     SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
 
     #sending the first packet and starting the connection
-    firstPacket = pack_message(Command.HELLO, seq_num, SESSION_ID)
+    firstPacket = wrap_packet(Command.HELLO, seq_num, SESSION_ID)
     client.start_recv(receivePacket)
     client.send((address, portNum), firstPacket)
     
