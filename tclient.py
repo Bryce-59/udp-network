@@ -1,5 +1,5 @@
 # TODO: Client should check magic number, version number, and session_id when receiving packages
-# TODO: Implement timeout (currently does not work, period)
+# TODO: close_session does not work (for some reason-- this is why timeout fails)
 
 # import main_client
 # from main_client import *
@@ -20,7 +20,10 @@ timer = None
 def send(command, seq_num, session_id, data=None):
     message = pack_message(command, seq_num, session_id, data)
     clientSocket.sendto(message,(serverName, serverPort))
-    timer.start()
+    try:
+        timer.start()
+    except:
+        pass
 
 def receive():
     modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
@@ -43,8 +46,7 @@ def handle_keyboard(session_id):
             send(Command.GOODBYE, seq_num, session_id, None)
             break
         else:
-            message = pack_message(Command.DATA, seq_num, session_id, data)
-            clientSocket.sendto(message,(serverName, serverPort))
+            send(Command.DATA, seq_num, session_id, data)
         seq_num += 1
     shutdown_time.set()
 
