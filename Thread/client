@@ -25,10 +25,6 @@ def send(command, seq_num, session_id, data=None):
     packet = wrap_packet(command, seq_num, session_id, data)
     clientSocket.sendto(packet,(serverName, serverPort))
 
-def receive():
-    packet, serverAddress = clientSocket.recvfrom(2048)
-    return unwrap_packet(packet)
-
 def close_session():
     try:
         clientSocket.shutdown(SHUT_WR)
@@ -50,7 +46,6 @@ def timer_goodbye():
     close_session()
     shutdown_time.set()
 
-
 def handle_keyboard(session_id):
     seq_num = 1
     while True:
@@ -66,24 +61,42 @@ def handle_keyboard(session_id):
         seq_num += 1
     shutdown_time.set()
 
-def handle_socket():
-    while True:
-        magic, version, command, sequence, session_id, data = receive()
-        if (command == Command.GOODBYE):
-            print('closing client')
-        if (command != Command.ALIVE):
-            break
-        else:
-            global alive_rcv
-            alive_rcv = True
-    shutdown_time.set()
 
 '''
 The main socket loop
 
 Corner cases -
-    ???      | packet < 12 bytes (not P0P packet)
-    ???      | magic != MAGIC or version != VERSION
+    Ignore   | packet < 12 bytes (not P0P packet)
+    Ignore   | magic != MAGIC or version != VERSION
+    Goodbye  | server sends incorrect session id
+
+    Goodbye  | not ALIVE
+'''
+def handle_socket(session_id):
+    while True:
+        MIN_SIZE = 12
+        packet, serverAddress = clientSocket.recvfrom(2048)
+        if len(packet) >= MIN_SIZE:
+            magic, version, command, sequence, rcv_id, data = unwrap_packet(packet)
+            if magic == MAGIC and version == VERSION: 
+                if session_id != rcv_id:
+                    break
+                
+                if (command == Command.GOODBYE):
+                    print('closing client')
+                if (command != Command.ALIVE):
+                    break
+                else:
+                    global alive_rcv
+                    alive_rcv = True
+    shutdown_time.set()
+
+'''
+Start the code
+
+Corner cases -
+    Goodbye  | packet < 12 bytes (not P0P packet)
+    Goodbye  | magic != MAGIC or version != VERSION
     Goodbye  | server sends incorrect session id
 '''
 def start_client(session_id):
@@ -108,7 +121,7 @@ if __name__ == '__main__':
     serverName = sys.argv[1]
     serverPort = int(sys.argv[2])
     
-    session_id = random.randint(0x00000000, 0xFFFFFFFF)
+
 
     # Start
     t0 = Thread(target=start_client, args=(session_id,), daemon=True)
