@@ -54,10 +54,10 @@ def handle_keyboard(session_id):
             send(Command.GOODBYE, seq_num, session_id, None)
             break
         else:
+            data = data.encode('UTF-8')
             send(Command.DATA, seq_num, session_id, data)
             global alive_rcv
             alive_rcv = False
-
         seq_num += 1
     shutdown_time.set()
 
@@ -74,7 +74,6 @@ Corner cases -
 '''
 def handle_socket(session_id):
     while True:
-        MIN_SIZE = 12
         packet, serverAddress = clientSocket.recvfrom(2048)
         if len(packet) >= MIN_SIZE:
             magic, version, command, sequence, rcv_id, data = unwrap_packet(packet)
@@ -104,25 +103,27 @@ def start_client(session_id):
     timer.start()
     send(Command.HELLO, 0, session_id)
     
-    magic, version, command, _, rcv_id, _ = receive()
-    if command == Command.HELLO and rcv_id == session_id:
-        global alive_rcv
-        alive_rcv = True
+    packet, serverAddress = clientSocket.recvfrom(2048)
+    if len(packet) >= MIN_SIZE:
+        magic, version, command, _, rcv_id, _ = unwrap_packet(packet)
+        if magic == MAGIC and version == VERSION:
+            if command == Command.HELLO and rcv_id == session_id:
+                global alive_rcv
+                alive_rcv = True
 
-        # Start the main running threads
-        t1 = Thread(target=handle_socket, daemon=True)
-        t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
-        t1.start()
-        t2.start()
-    else:
-        shutdown_time.set()
+                # Start the main running threads
+                t1 = Thread(target=handle_socket, args=(session_id,), daemon=True)
+                t2 = Thread(target=handle_keyboard, args=(session_id,), daemon=True)
+                t1.start()
+                t2.start()
+            else:
+                shutdown_time.set()
 
 if __name__ == '__main__':
     serverName = sys.argv[1]
     serverPort = int(sys.argv[2])
+    session_id = random.randint(0x00000000, 0xFFFFFFFF)
     
-
-
     # Start
     t0 = Thread(target=start_client, args=(session_id,), daemon=True)
     t0.start()

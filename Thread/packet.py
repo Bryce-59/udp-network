@@ -2,6 +2,7 @@ from enum import IntEnum
 
 MAGIC = 0xC356
 VERSION = 1
+MIN_SIZE = 12
 
 class Command(IntEnum):
     HELLO = 0
@@ -17,7 +18,7 @@ def wrap_packet(command, sequence_number, session_id, data=None):
     s_id = session_id.to_bytes(4,byteorder='big')
     packet = b''.join((m,v,cmd,seq,s_id))
     if command == Command.DATA:
-        packet = b''.join((packet, data.encode('UTF-8')))
+        packet = b''.join((packet, data))
     return packet
 
 def unwrap_packet(packet):
