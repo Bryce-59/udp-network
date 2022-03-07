@@ -21,15 +21,21 @@ class FSA(IntEnum):
 serverName = None
 serverPort = None
 SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
-FSA = FSA.HELLO
 seq_num = 0
+FSA = FSA.HELLO
 
+'''
+Helper function that sends a command to the specified server
+'''
 def send(command, data=None):
     global seq_num
     packet = wrap_packet(command, seq_num, SESSION_ID, data)
     client.send((serverName, serverPort),packet)
     seq_num += 1
 
+'''
+Check that data is a valid P0P packet
+'''
 def valid(data):
     if len(data) >= MIN_SIZE:
         magic, version, _, _, _, _ = unwrap_packet(data)
@@ -37,13 +43,29 @@ def valid(data):
             return True 
     return False
 
+'''
+Enter the CLOSING phase and wait for GOODBYE or timeout
+'''
 def prepare_to_close():
     global FSA
     FSA = FSA.CLOSING
     send(Command.GOODBYE, None)
-    Timer.start(close_session,5,5)
+    Timer.start(close_client,5,5)
 
-def close_session(handle=None):
+'''
+Enter the CLOSING phase and immediate CLOSE
+No point waiting for a server that has gone crazy
+'''
+def protocol_error(handle=None):
+    global FSA
+    FSA = FSA.CLOSING
+    send(Command.GOODBYE, None)
+    goodbyeAsync.send()
+
+'''
+Stop the code
+'''
+def close_client(handle=None):
     global FSA
     print('closing client')
     clientTTY.stop_read()
@@ -52,6 +74,9 @@ def close_session(handle=None):
     loop.stop()
     FSA = FSA.CLOSED
 
+'''
+The main socket loop
+'''
 def handle_socket(handle, ip_port, flags, data, error):
     global FSA
     if valid(data):
@@ -74,10 +99,13 @@ def handle_socket(handle, ip_port, flags, data, error):
                 goodbyeAsync.send()
             
             else:
-                prepare_to_close()
+                protocol_error()
         else:
-            prepare_to_close()
+            protocol_error()
 
+'''
+The main input loop
+'''
 def handle_keyboard(handle, data, error):
     data_str = data.decode("UTF-8")
     if (not data_str or data_str == "q\n"):
@@ -96,7 +124,7 @@ if __name__ == '__main__':
     client = pyuv.UDP(loop)
     clientTTY = pyuv.TTY(loop, sys.stdin.fileno(), True)
     Timer = pyuv.Timer(loop)
-    goodbyeAsync = pyuv.Async(loop, close_session)
+    goodbyeAsync = pyuv.Async(loop, close_client)
 
     #sending the first packet and starting the connection
     client.start_recv(handle_socket)

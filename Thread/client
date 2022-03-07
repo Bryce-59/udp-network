@@ -21,15 +21,12 @@ class FSA(IntEnum):
 
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 shutdown_time = threading.Event()
-
 serverName = None
 serverPort = None
 SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
-FSA = FSA.HELLO
 seq_num = 0
-
-rcv_goodbye = False
-alive_rcv = False
+FSA = FSA.HELLO
+timer = None
 
 '''
 Helper function that sends a command to the specified server
@@ -62,22 +59,23 @@ def request(expected):
                     return True
                 elif (command == Command.GOODBYE):
                     print('closing client')
-                    global rcv_goodbye
-                    rcv_goodbye = True
+                    close_client()
                 return False
 
 '''
 Start the code
 '''
 def open_client():
-    timer = Thread(target=timer_goodbye, daemon=True)
-    timer.start()
+    global timer
+    global FSA
+    timer = threading.Timer(5, prepare_to_close)
     send(Command.HELLO, None)
-    
+    FSA = FSA.HELLO_WAIT
+    timer.start()
     hello = request(Command.HELLO)
     if hello:
-        global alive_rcv
-        alive_rcv = True
+        timer.cancel()
+        FSA = FSA.READY
 
         # Start the main running threads
         t1 = Thread(target=handle_socket, daemon=True)
@@ -85,85 +83,76 @@ def open_client():
         t1.start()
         t2.start()
     else:
-        shutdown_time.set()
+        close_client()
 
 '''
-End the code
+Enter the CLOSING phase and wait for GOODBYE or timeout
+'''
+def prepare_to_close():
+    global timer
+    timer.cancel()
+    send(Command.GOODBYE, None) 
+    timer = threading.Timer(5, close_client)
+    timer.start()
+    
+    goodbye = request(Command.GOODBYE)
+    close_client()
+
+'''
+Stop the code
 '''
 def close_client():
-    try:
-        clientSocket.shutdown(SHUT_WR)
-    except:
-        pass
-    clientSocket.close()
-
-
-def timer_goodbye():
-    timeout = 5
-    cycles = 1000
-    
-    i = 0
-    while i < timeout * cycles / 5: # way too slow, using a magic number
-        time.sleep(timeout / cycles)
-        if (alive_rcv):
-            i = 0
-        else:
-            i += 1
-    
-    if (shutdown_time.is_set()):
-        close_client()
-    else:
-        shutdown_time.set()
-
-'''
-The main input loop
-'''
-def handle_keyboard():
-    while True:
-        data = sys.stdin.readline()
-        if (not data or (data == "q\n" and sys.stdin.isatty())):
-            send(Command.GOODBYE, None)
-            break
-        else:
-            send(Command.DATA, data.encode('UTF-8'))
-            global alive_rcv #
-            alive_rcv = False #
-    
     shutdown_time.set()
 
 '''
 The main socket loop
 '''
 def handle_socket():
+    global FSA
     while True:
         alive = request(Command.ALIVE)
         
         if alive:
-            global alive_rcv #
-            alive_rcv = True #
+            if FSA == FSA.READY_TIME:
+                timer.cancel()
+                FSA = FSA.READY
         else:
             break
-    
-    shutdown_time.set()
+    close_client()   
+
+'''
+The main input loop
+'''
+def handle_keyboard():
+    global timer
+    global FSA
+    while True:
+        data = sys.stdin.readline()
+        if not data or (data == "q\n" and sys.stdin.isatty()):
+            prepare_to_close()
+            break
+        else:
+            send(Command.DATA, data.encode('UTF-8'))
+            if FSA == FSA.READY:
+                timer = threading.Timer(5, prepare_to_close)
+                FSA = FSA.READY_TIME
+                timer.start()
 
 if __name__ == '__main__':
     serverName = sys.argv[1]
     serverPort = int(sys.argv[2])
-    session_id = random.randint(0x00000000, 0xFFFFFFFF)
     
     # Start (HELLO_WAIT, READY/READY_TIME)
     t_start = Thread(target=open_client, daemon=True)
     t_start.start()
-    
+
+    # Wait to shut down 
     shutdown_time.wait()
+    timer.cancel()
     
-    if not rcv_goodbye:
-        # CLOSING
-        send(Command.GOODBYE, None) 
-        timer = Thread(target=timer_goodbye, daemon=True)
-        timer.start()
-        
-        goodbye = request(Command.GOODBYE)
-    
-    #CLOSED
-    close_client()
+    try:
+        clientSocket.shutdown(SHUT_WR)
+    except:
+        pass
+    clientSocket.close()
+    FSA = FSA.CLOSED
