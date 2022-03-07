@@ -61,7 +61,7 @@ def respond_to_command(sessions, session_id, clientAddress, command, seq_num, da
         sessions[session_id][2].start()
     elif command == Command.GOODBYE:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
-        close_session(sessions, session_id, clientAddress)   
+        close_session(sessions, session_id, clientAddress)
 
 '''
 Helper function which processes valid P0P packets

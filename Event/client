@@ -6,8 +6,6 @@ from packet import *
 import socket
 from socket import *
 import sys
-import threading
-from threading import *
 import pyuv
 
 class FSA(IntEnum):
@@ -46,7 +44,7 @@ def valid(data):
 '''
 Enter the CLOSING phase and wait for GOODBYE or timeout
 '''
-def prepare_to_close():
+def prepare_to_close(handle=None):
     global FSA
     FSA = FSA.CLOSING
     send(Command.GOODBYE, None)
@@ -56,7 +54,7 @@ def prepare_to_close():
 Enter the CLOSING phase and immediate CLOSE
 No point waiting for a server that has gone crazy
 '''
-def protocol_error(handle=None):
+def protocol_error():
     global FSA
     FSA = FSA.CLOSING
     send(Command.GOODBYE, None)

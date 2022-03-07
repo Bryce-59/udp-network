@@ -1,5 +1,5 @@
 import random
-from message import *
+from packet import *
 from socket import *
 import sys
 
@@ -8,7 +8,10 @@ serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
 def send(command, seq_num, session_id, data=None):
-    message = pack_message(command, seq_num, session_id, data)
+    data_str = None
+    if data:
+        data_str = data.encode('UTF-8')
+    message = wrap_packet(command, seq_num, session_id, data_str)
     clientSocket.sendto(message,(serverName, serverPort))
 
 if __name__ == '__main__':
@@ -27,7 +30,7 @@ if __name__ == '__main__':
             seq_num += 1
             break
         else:
-            message = pack_message(Command.DATA, seq_num, session_id, data)
+            message = wrap_packet(Command.DATA, seq_num, session_id, data.encode('UTF-8'))
             clientSocket.sendto(message,(serverName, serverPort))
         seq_num += 1
     

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3 
 
-# TODO: Why is time.sleep so SLOW?
-
 import random
 from packet import *
 import socket
@@ -9,7 +7,6 @@ from socket import *
 import sys
 import threading
 from threading import *
-import time
 
 class FSA(IntEnum):
     HELLO = 0

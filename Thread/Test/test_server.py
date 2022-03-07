@@ -1,4 +1,4 @@
-from message import *
+from packet import *
 import socket
 from socket import *
 import sys
@@ -7,10 +7,11 @@ from threading import *
 
 # a global counter incremented when a command is sent
 server_seq = 0
+lost = 0
 
 def send_message(command, session_id, clientAddress):
     global server_seq
-    response = pack_message(command, server_seq, session_id)
+    response = wrap_packet(command, server_seq, session_id)
     serverSocket.sendto(response, clientAddress)
     server_seq = server_seq + 1
 
@@ -20,9 +21,10 @@ def close_session(sessions, session_id, clientAddress):
     send_message(Command.GOODBYE, session_id, clientAddress)
 
 def handle_socket(sessions):
+    global lost
     while True:
         message, clientAddress = serverSocket.recvfrom(2048)
-        magic, version, command, seq_num, session_id, data = unpack_message(message)
+        magic, version, command, seq_num, session_id, data = unwrap_packet(message)
 
         if command == Command.HELLO:
             print('%s [%d] Session created' % (hex(session_id), seq_num))
@@ -34,17 +36,18 @@ def handle_socket(sessions):
             if (seq_num > expected):
                 for i in range (sessions[session_id][0] + 1, seq_num, 1):
                     print('%s [%d] Lost packet!' % (hex(session_id), i))
+                    lost += 1
                 expected = seq_num 
             
             if (seq_num == expected or seq_num == 0):
                 sessions[session_id][0] = seq_num + 1
                 if command == Command.DATA:
-                    print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
+                    print('%s [%d] %s | %s ===' % (hex(session_id), seq_num, data.decode('UTF-8'), lost), end='')
                     send_message(Command.ALIVE, session_id, clientAddress)
                 else:
                     print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
                     close_session(sessions, session_id, clientAddress)
-                    print('%s Session closed' % hex(session_id))
+                    print('%s Session closed' % hex(session_id), lost)
         
 
 if __name__ == '__main__':
