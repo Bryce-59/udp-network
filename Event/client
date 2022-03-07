@@ -1,0 +1,111 @@
+#!/usr/bin/env python3 
+
+from enum import IntEnum
+import random
+from packet import *
+import socket
+from socket import *
+import sys
+import threading
+from threading import *
+import pyuv
+
+class FSA(IntEnum):
+    HELLO = 0
+    HELLO_WAIT = 1
+    READY = 2
+    READY_TIME = 3
+    CLOSING = 4
+    CLOSED = 5
+
+serverName = None
+serverPort = None
+SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
+FSA = FSA.HELLO
+seq_num = 0
+
+def send(command, data=None):
+    global seq_num
+    packet = wrap_packet(command, seq_num, SESSION_ID, data)
+    client.send((serverName, serverPort),packet)
+    seq_num += 1
+
+def valid(data):
+    if len(data) >= MIN_SIZE:
+        magic, version, _, _, _, _ = unwrap_packet(data)
+        if magic == MAGIC and version == VERSION:
+            return True 
+    return False
+
+def prepare_to_close():
+    global FSA
+    FSA = FSA.CLOSING
+    send(Command.GOODBYE, None)
+    Timer.start(close_session,5,5)
+
+def close_session(handle=None):
+    global FSA
+    print('closing client')
+    clientTTY.stop_read()
+    client.stop_recv()
+    Timer.stop()
+    loop.stop()
+    FSA = FSA.CLOSED
+
+def handle_socket(handle, ip_port, flags, data, error):
+    global FSA
+    if valid(data):
+        _, _, command, _, rcv_id, _ = unwrap_packet(data)
+        
+        if SESSION_ID == rcv_id:
+
+            if FSA == FSA.HELLO_WAIT and command == Command.HELLO:
+                FSA = FSA.READY
+                Timer.stop()
+            
+            elif FSA == FSA.READY or FSA == FSA.READY_TIME:
+                if command == Command.GOODBYE:
+                    goodbyeAsync.send()
+                elif command == Command.ALIVE:
+                    FSA = FSA.READY
+                    Timer.stop()
+            
+            elif FSA == FSA.CLOSING and command == Command.GOODBYE:
+                goodbyeAsync.send()
+            
+            else:
+                prepare_to_close()
+        else:
+            prepare_to_close()
+
+def handle_keyboard(handle, data, error):
+    data_str = data.decode("UTF-8")
+    if (not data_str or data_str == "q\n"):
+        prepare_to_close()
+    else:
+        send(Command.DATA, data)
+        if FSA == FSA.READY:
+           Timer.start(prepare_to_close,5,5)
+
+if __name__ == '__main__':
+    serverName = gethostbyname(sys.argv[1])
+    serverPort = int(sys.argv[2])
+    
+    #initialize the event-loop
+    loop = pyuv.Loop.default_loop()
+    client = pyuv.UDP(loop)
+    clientTTY = pyuv.TTY(loop, sys.stdin.fileno(), True)
+    Timer = pyuv.Timer(loop)
+    goodbyeAsync = pyuv.Async(loop, close_session)
+
+    #sending the first packet and starting the connection
+    client.start_recv(handle_socket)
+    send(Command.HELLO, None)
+    FSA = FSA.HELLO_WAIT
+    Timer.start(prepare_to_close,5,5)
+
+    #start reading input
+    clientTTY.start_read(handle_keyboard)
+
+    #start the loop
+    loop.run()
