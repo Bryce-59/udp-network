@@ -49,15 +49,21 @@ def TimerGoodbye(handle=None):
     Timer.start(close_client,5,5)
 
 '''
-Enter the CLOSING phase and immediate CLOSE
+Enter the CLOSING phase and immediately CLOSE
 No point waiting for a server that has gone crazy
+'''
+def protocol_error():
+    prepare_to_close
+    goodbyeAsync.send()
+
+'''
+Send GOODBYE and prepare the client for termination
 '''
 def prepare_to_close():
     global FSA
     Timer.stop()
     if not FSA == FSA.CLOSING:
         FSA = FSA.CLOSING
-        print('closing client')
         send(Command.GOODBYE, None)
 
 '''
@@ -81,27 +87,25 @@ def handle_socket(handle, ip_port, flags, data, error):
         
         if SESSION_ID == rcv_id:
 
+            if command == Command.GOODBYE:
+                FSA = FSA.CLOSING
+                goodbyeAsync.send()
+
             if FSA == FSA.HELLO_WAIT and command == Command.HELLO:
                 clientTTY.start_read(handle_keyboard) #start reading input
                 FSA = FSA.READY
                 Timer.stop()
             
             elif FSA == FSA.READY or FSA == FSA.READY_TIME:
-                if command == Command.GOODBYE:
-                    prepare_to_close()
-                    goodbyeAsync.send()
-                elif command == Command.ALIVE:
+                if command == Command.ALIVE:
                     FSA = FSA.READY
-            
-            elif FSA == FSA.CLOSING and command == Command.GOODBYE:
-                goodbyeAsync.send()
+                else:
+                    protocol_error()
             
             else:
-                prepare_to_close()
-                goodbyeAsync.send()
+                protocol_error()
         else:
-            prepare_to_close()
-            goodbyeAsync.send()
+            protocol_error()
 
 '''
 The main input loop
@@ -110,7 +114,10 @@ def handle_keyboard(handle, data, error):
     data_str = None
     if not data == None:
         data_str = data.decode("UTF-8")
+    
     if not data_str or data_str == "q\n":
+        if not data_str:
+            print("eof")
         Timer.stop()
         TimerGoodbye()
     else:

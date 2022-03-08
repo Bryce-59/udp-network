@@ -44,6 +44,7 @@ Corner cases -
     Goodbye  | no FSA (i.e. not expected command and not GOODBYE)
 '''
 def request(expected):
+    global FSA
     while True:
         packet, serverAddress = clientSocket.recvfrom(2048)
         if len(packet) >= MIN_SIZE:
@@ -51,13 +52,11 @@ def request(expected):
             if magic == MAGIC and version == VERSION: 
                 if not SESSION_ID == rcv_id:
                     return False
-        
-                if command == expected:
+                if command == Command.GOODBYE:
+                    timer.cancel()
+                    close_client()
+                elif command == expected:
                     return True
-                elif command == Command.GOODBYE:
-                    if not FSA == FSA.CLOSING:
-                        print('closing client')
-                    close_client(False)
                 return False
 
 '''
@@ -81,27 +80,30 @@ def open_client():
         t1.start()
         t2.start()
     else:
-        prepare_to_close(False)
+        prepare_to_close(error=True)
 
-def prepare_to_close(wait=True):
-    send(Command.GOODBYE, None)
-    print('closing client')
-    close_client(wait)
+def prepare_to_close(error=False):
+    global timer
+    global FSA
+    timer.cancel()
+    if not FSA == FSA.CLOSING: 
+        FSA = FSA.CLOSING
+        send(Command.GOODBYE, None)
+    
+    if not error:
+        timer = threading.Timer(5, close_client)
+        timer.start()
+        request(Command.GOODBYE)
+        timer.cancel()
+    
+    close_client()
+
 
 '''
 Enter the CLOSING phase and transition to CLOSED
 based on server response
 '''
-def close_client(wait=True):
-    global FSA
-    global timer
-    timer.cancel()
-    FSA = FSA.CLOSING
-    if wait:
-        timer = threading.Timer(5, close_client, [False])
-        timer.start()
-        request(Command.GOODBYE)
-        timer.cancel()
+def close_client():
     shutdown_time.set()
 
 '''
@@ -118,7 +120,7 @@ def handle_socket():
                 FSA = FSA.READY
         else:
             break
-    prepare_to_close(False)
+    prepare_to_close(error=True)
 
 '''
 The main input loop
@@ -129,7 +131,9 @@ def handle_keyboard():
     while True:
         data = sys.stdin.readline()
         if not data or (data == "q\n" and sys.stdin.isatty()):
-            prepare_to_close(True)
+            if not data:
+                print("eof")
+            prepare_to_close()
             break
         else:
             send(Command.DATA, data.encode('UTF-8'))

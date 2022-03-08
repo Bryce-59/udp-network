@@ -17,7 +17,7 @@ def wrap_packet(command, sequence_number, session_id, data=None):
     seq = sequence_number.to_bytes(4,byteorder='big')
     s_id = session_id.to_bytes(4,byteorder='big')
     packet = b''.join((m,v,cmd,seq,s_id))
-    if command == Command.DATA:
+    if data and command == Command.DATA:
         packet = b''.join((packet, data))
     return packet
 

@@ -1,0 +1,34 @@
+#!/usr/local/bin/expect -f
+# For Testing purpose
+set timeout -1
+log_user 0
+spawn ./client [lindex $argv 0] [lindex $argv 1]
+log_user 1
+match_max 100000
+sleep 1
+
+send -- "one\r"
+expect -exact "one\r
+"
+send -- "two\r"
+expect -exact "two\r
+"
+send -- "three\r"
+expect -exact "Test for empty line.\r
+"
+send -- "q\r"
+expect eof
+"
+spawn ./client [lindex $argv 0] [lindex $argv 1]
+log_user 1
+match_max 100000
+sleep 1
+
+send -- "foo\r"
+expect -exact "foo\r
+"
+send -- "bar\r"
+expect -exact "bar\r
+"
+send -- "q\r"
+expect eof
