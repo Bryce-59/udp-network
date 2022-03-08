@@ -54,9 +54,11 @@ No point waiting for a server that has gone crazy
 '''
 def prepare_to_close():
     global FSA
-    FSA = FSA.CLOSING
-    print('closing client')
-    send(Command.GOODBYE, None)
+    Timer.stop()
+    if not FSA == FSA.CLOSING:
+        FSA = FSA.CLOSING
+        print('closing client')
+        send(Command.GOODBYE, None)
 
 '''
 Stop the code
@@ -90,7 +92,6 @@ def handle_socket(handle, ip_port, flags, data, error):
                     goodbyeAsync.send()
                 elif command == Command.ALIVE:
                     FSA = FSA.READY
-                    Timer.stop()
             
             elif FSA == FSA.CLOSING and command == Command.GOODBYE:
                 goodbyeAsync.send()
@@ -106,7 +107,9 @@ def handle_socket(handle, ip_port, flags, data, error):
 The main input loop
 '''
 def handle_keyboard(handle, data, error):
-    data_str = data.decode("UTF-8")
+    data_str = None
+    if not data == None:
+        data_str = data.decode("UTF-8")
     if not data_str or data_str == "q\n":
         Timer.stop()
         TimerGoodbye()
