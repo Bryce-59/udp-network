@@ -42,9 +42,10 @@ Corner cases -
     
     Goodbye  | server sends incorrect session id
     Goodbye  | no FSA (i.e. not expected command and not GOODBYE)
+
+    Ignore   | server sends ALIVE when requested GOODBYE
 '''
 def request(expected):
-    global FSA
     while True:
         packet, serverAddress = clientSocket.recvfrom(2048)
         if len(packet) >= MIN_SIZE:
@@ -57,7 +58,8 @@ def request(expected):
                     close_client()
                 elif command == expected:
                     return True
-                return False
+                elif FSA != FSA.CLOSING and command != Command.ALIVE:
+                    return False
 
 '''
 Start the code

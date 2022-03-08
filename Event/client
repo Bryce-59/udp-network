@@ -53,7 +53,7 @@ Enter the CLOSING phase and immediately CLOSE
 No point waiting for a server that has gone crazy
 '''
 def protocol_error():
-    prepare_to_close
+    prepare_to_close()
     goodbyeAsync.send()
 
 '''
@@ -102,7 +102,7 @@ def handle_socket(handle, ip_port, flags, data, error):
                 else:
                     protocol_error()
             
-            else:
+            elif not FSA == FSA.CLOSING and not command == Command.ALIVE :
                 protocol_error()
         else:
             protocol_error()

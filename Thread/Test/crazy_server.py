@@ -8,7 +8,7 @@ from threading import *
 
 crazy_HELLO = Command.HELLO
 crazy_ALIVE = Command.ALIVE
-crazy_GOODBYE = Command.HELLO
+crazy_GOODBYE = Command.DATA
 
 server_seq = 0 # increment when server sends a packet
 
