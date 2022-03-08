@@ -44,28 +44,25 @@ def valid(data):
 '''
 Enter the CLOSING phase and wait for GOODBYE or timeout
 '''
-def prepare_to_close(handle=None):
-    global FSA
-    FSA = FSA.CLOSING
-    send(Command.GOODBYE, None)
+def TimerGoodbye(handle=None):
+    prepare_to_close()
     Timer.start(close_client,5,5)
 
 '''
 Enter the CLOSING phase and immediate CLOSE
 No point waiting for a server that has gone crazy
 '''
-def protocol_error():
+def prepare_to_close():
     global FSA
     FSA = FSA.CLOSING
+    print('closing client')
     send(Command.GOODBYE, None)
-    goodbyeAsync.send()
 
 '''
 Stop the code
 '''
 def close_client(handle=None):
     global FSA
-    print('closing client')
     clientTTY.stop_read()
     client.stop_recv()
     Timer.stop()
@@ -83,11 +80,13 @@ def handle_socket(handle, ip_port, flags, data, error):
         if SESSION_ID == rcv_id:
 
             if FSA == FSA.HELLO_WAIT and command == Command.HELLO:
+                clientTTY.start_read(handle_keyboard) #start reading input
                 FSA = FSA.READY
                 Timer.stop()
             
             elif FSA == FSA.READY or FSA == FSA.READY_TIME:
                 if command == Command.GOODBYE:
+                    prepare_to_close()
                     goodbyeAsync.send()
                 elif command == Command.ALIVE:
                     FSA = FSA.READY
@@ -97,21 +96,24 @@ def handle_socket(handle, ip_port, flags, data, error):
                 goodbyeAsync.send()
             
             else:
-                protocol_error()
+                prepare_to_close()
+                goodbyeAsync.send()
         else:
-            protocol_error()
+            prepare_to_close()
+            goodbyeAsync.send()
 
 '''
 The main input loop
 '''
 def handle_keyboard(handle, data, error):
     data_str = data.decode("UTF-8")
-    if (not data_str or data_str == "q\n"):
-        prepare_to_close()
+    if not data_str or data_str == "q\n":
+        Timer.stop()
+        TimerGoodbye()
     else:
         send(Command.DATA, data)
         if FSA == FSA.READY:
-           Timer.start(prepare_to_close,5,5)
+           Timer.start(TimerGoodbye,5,5)
 
 if __name__ == '__main__':
     serverName = gethostbyname(sys.argv[1])
@@ -128,10 +130,7 @@ if __name__ == '__main__':
     client.start_recv(handle_socket)
     send(Command.HELLO, None)
     FSA = FSA.HELLO_WAIT
-    Timer.start(prepare_to_close,5,5)
-
-    #start reading input
-    clientTTY.start_read(handle_keyboard)
+    Timer.start(TimerGoodbye,5,5)
 
     #start the loop
     loop.run()

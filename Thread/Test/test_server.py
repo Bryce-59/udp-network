@@ -42,7 +42,7 @@ def handle_socket(sessions):
             if (seq_num == expected or seq_num == 0):
                 sessions[session_id][0] = seq_num + 1
                 if command == Command.DATA:
-                    print('%s [%d] %s | %s ===' % (hex(session_id), seq_num, data.decode('UTF-8'), lost), end='')
+                    print('%s [%d] %s | %s' % (hex(session_id), seq_num, data.decode('UTF-8'), lost))
                     send_message(Command.ALIVE, session_id, clientAddress)
                 else:
                     print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))

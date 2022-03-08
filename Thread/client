@@ -49,14 +49,15 @@ def request(expected):
         if len(packet) >= MIN_SIZE:
             magic, version, command, sequence, rcv_id, data = unwrap_packet(packet)
             if magic == MAGIC and version == VERSION: 
-                if SESSION_ID != rcv_id:
+                if not SESSION_ID == rcv_id:
                     return False
         
-                if (command == expected):
+                if command == expected:
                     return True
-                elif (command == Command.GOODBYE):
-                    print('closing client')
-                    close_client()
+                elif command == Command.GOODBYE:
+                    if not FSA == FSA.CLOSING:
+                        print('closing client')
+                    close_client(False)
                 return False
 
 '''
@@ -70,8 +71,8 @@ def open_client():
     FSA = FSA.HELLO_WAIT
     timer.start()
     hello = request(Command.HELLO)
+    timer.cancel()
     if hello:
-        timer.cancel()
         FSA = FSA.READY
 
         # Start the main running threads
@@ -80,25 +81,27 @@ def open_client():
         t1.start()
         t2.start()
     else:
-        close_client()
+        prepare_to_close(False)
+
+def prepare_to_close(wait=True):
+    send(Command.GOODBYE, None)
+    print('closing client')
+    close_client(wait)
 
 '''
-Enter the CLOSING phase and wait for GOODBYE or timeout
+Enter the CLOSING phase and transition to CLOSED
+based on server response
 '''
-def prepare_to_close():
+def close_client(wait=True):
+    global FSA
     global timer
     timer.cancel()
-    send(Command.GOODBYE, None) 
-    timer = threading.Timer(5, close_client)
-    timer.start()
-    
-    goodbye = request(Command.GOODBYE)
-    close_client()
-
-'''
-Stop the code
-'''
-def close_client():
+    FSA = FSA.CLOSING
+    if wait:
+        timer = threading.Timer(5, close_client, [False])
+        timer.start()
+        request(Command.GOODBYE)
+        timer.cancel()
     shutdown_time.set()
 
 '''
@@ -115,7 +118,7 @@ def handle_socket():
                 FSA = FSA.READY
         else:
             break
-    close_client()   
+    prepare_to_close(False)
 
 '''
 The main input loop
@@ -126,7 +129,7 @@ def handle_keyboard():
     while True:
         data = sys.stdin.readline()
         if not data or (data == "q\n" and sys.stdin.isatty()):
-            prepare_to_close()
+            prepare_to_close(True)
             break
         else:
             send(Command.DATA, data.encode('UTF-8'))
@@ -145,8 +148,6 @@ if __name__ == '__main__':
 
     # Wait to shut down 
     shutdown_time.wait()
-    timer.cancel()
-    
     try:
         clientSocket.shutdown(SHUT_WR)
     except:
