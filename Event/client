@@ -8,6 +8,9 @@ from socket import *
 import sys
 import pyuv
 
+'''
+An enum class to represent the Finite State Automata (FSA) of the session.
+'''
 class FSA(IntEnum):
     HELLO = 0
     HELLO_WAIT = 1
