@@ -1,15 +1,21 @@
 from enum import IntEnum
 
-MAGIC = 0xC356
-VERSION = 1
+MAGIC = 0xE86D
+VERSION = 2
 MIN_SIZE = 12
 
+'''
+An enum class to represent the finite commands that can be sent over the network.
+'''
 class Command(IntEnum):
     HELLO = 0
     DATA = 1
     ALIVE = 2
     GOODBYE = 3
 
+'''
+Wrap the data for transmission.
+'''
 def wrap_packet(command, sequence_number, session_id, data=None):
     m = MAGIC.to_bytes(2,byteorder='big')
     v = VERSION.to_bytes(1,byteorder='big')
@@ -21,6 +27,9 @@ def wrap_packet(command, sequence_number, session_id, data=None):
         packet = b''.join((packet, data))
     return packet
 
+'''
+Unwrap the data upon reception.
+'''
 def unwrap_packet(packet):
     m = int.from_bytes(packet[:2],byteorder='big')
     v = int.from_bytes(packet[2:3],byteorder='big')
