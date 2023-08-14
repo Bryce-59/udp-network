@@ -1,23 +1,13 @@
 #!/usr/bin/env python3 
 
-from enum import IntEnum
 import random
-from packet import *
-import socket
 from socket import *
 import sys
+
 import pyuv
 
-'''
-An enum class to represent the Finite State Automata (FSA) of the session.
-'''
-class FSA(IntEnum):
-    HELLO = 0
-    HELLO_WAIT = 1
-    READY = 2
-    READY_TIME = 3
-    CLOSING = 4
-    CLOSED = 5
+from fsa_client import FSA
+from .packet import *
 
 serverName = None
 serverPort = None

@@ -1,9 +1,10 @@
 import random
-from packet import *
 from socket import *
 import sys
 
-serverName = 'descartes.cs.utexas.edu'
+from ...packet import *
+
+serverName = 'localhost'
 serverPort = 5000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 

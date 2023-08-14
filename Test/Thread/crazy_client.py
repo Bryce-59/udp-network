@@ -1,26 +1,19 @@
 #!/usr/bin/env python3 
 
 import random
-from packet import *
-import socket
 from socket import *
+from threading import Event, Thread, Timer
 import sys
-import threading
-from threading import *
 
-'''
-An enum class to represent the Finite State Automata (FSA) of the session.
-'''
-class FSA(IntEnum):
-    HELLO = 0
-    HELLO_WAIT = 1
-    READY = 2
-    READY_TIME = 3
-    CLOSING = 4
-    CLOSED = 5
+from ...fsa_client import FSA
+from ...packet import *
+
+crazy_HELLO = Command.HELLO
+crazy_DATA = Command.ALIVE
+crazy_GOODBYE = Command.GOODBYE
 
 clientSocket = socket(AF_INET, SOCK_DGRAM)
-shutdown_time = threading.Event()
+shutdown_time = Event()
 serverName = None
 serverPort = None
 SESSION_ID = random.randint(0x00000000, 0xFFFFFFFF)
@@ -33,7 +26,10 @@ Helper function that sends a command to the specified server
 '''
 def send(command, data=None):
     global seq_num
-    packet = wrap_packet(command, seq_num, SESSION_ID, data)
+    if crazy_DATA == Command.DATA:
+        packet = wrap_packet(command, seq_num, SESSION_ID, data)
+    else:
+        packet = wrap_packet(command, seq_num, SESSION_ID, None)
     clientSocket.sendto(packet,(serverName, serverPort))
     seq_num += 1
 
@@ -45,10 +41,9 @@ Corner cases -
     
     Goodbye  | server sends incorrect session id
     Goodbye  | no FSA (i.e. not expected command and not GOODBYE)
-
-    Ignore   | server sends ALIVE when requested GOODBYE
 '''
 def request(expected):
+    global FSA
     while True:
         packet, serverAddress = clientSocket.recvfrom(2048)
         if len(packet) >= MIN_SIZE:
@@ -56,13 +51,15 @@ def request(expected):
             if magic == MAGIC and version == VERSION: 
                 if not SESSION_ID == rcv_id:
                     return False
-                if command == Command.GOODBYE:
-                    timer.cancel()
-                    close_client()
-                elif command == expected:
+        
+                if command == expected:
                     return True
-                elif FSA != FSA.CLOSING and command != Command.ALIVE:
-                    return False
+                elif command == Command.GOODBYE:
+                    if not FSA == FSA.CLOSING:
+                        FSA = FSA.CLOSING
+                        # print('closing client')
+                    close_client(False)
+                return False
 
 '''
 Start the code
@@ -70,8 +67,8 @@ Start the code
 def open_client():
     global timer
     global FSA
-    timer = threading.Timer(5, prepare_to_close)
-    send(Command.HELLO, None)
+    timer = Timer(5, prepare_to_close)
+    send(crazy_HELLO, None)
     FSA = FSA.HELLO_WAIT
     timer.start()
     hello = request(Command.HELLO)
@@ -85,30 +82,28 @@ def open_client():
         t1.start()
         t2.start()
     else:
-        prepare_to_close(error=True)
+        prepare_to_close(False)
 
-def prepare_to_close(error=False):
-    global timer
+def prepare_to_close(wait=True):
     global FSA
-    timer.cancel()
     if not FSA == FSA.CLOSING: 
         FSA = FSA.CLOSING
-        send(Command.GOODBYE, None)
-    
-    if not error:
-        timer = threading.Timer(5, close_client)
-        timer.start()
-        request(Command.GOODBYE)
-        timer.cancel()
-    
-    close_client()
-
+        send(crazy_GOODBYE, None)
+        # print('closing client')
+        close_client(wait)
 
 '''
 Enter the CLOSING phase and transition to CLOSED
 based on server response
 '''
-def close_client():
+def close_client(wait=True):
+    global timer
+    timer.cancel()
+    if wait:
+        timer = Timer(5, close_client, [False])
+        timer.start()
+        request(Command.GOODBYE)
+        timer.cancel()
     shutdown_time.set()
 
 '''
@@ -125,7 +120,7 @@ def handle_socket():
                 FSA = FSA.READY
         else:
             break
-    prepare_to_close(error=True)
+    prepare_to_close(False)
 
 '''
 The main input loop
@@ -135,15 +130,17 @@ def handle_keyboard():
     global FSA
     while True:
         data = sys.stdin.readline()
-        if not data or (data == "q\n" and sys.stdin.isatty()):
-            if not data:
-                print("eof")
-            prepare_to_close()
+        if data == "q\n" and sys.stdin.isatty():
+            prepare_to_close(True)
+            break
+        elif not data:
+            print("eof")
+            prepare_to_close(True)
             break
         else:
-            send(Command.DATA, data.encode('UTF-8'))
+            send(crazy_DATA, data.encode('UTF-8'))
             if FSA == FSA.READY:
-                timer = threading.Timer(5, prepare_to_close)
+                timer = Timer(5, prepare_to_close)
                 FSA = FSA.READY_TIME
                 timer.start()
 
