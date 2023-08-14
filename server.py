@@ -1,12 +1,15 @@
 #!/usr/bin/env python3 
 
-from packet import *
 from socket import *
 import sys
-import threading
-from threading import *
+from threading import Thread, Timer
+
+from packet import *
 
 server_seq = 0 # increment when server sends a packet
+
+DEBUG = False # debug mode
+loss = {} # increment when server loses a packet, for debug purposes
 
 '''
 Helper function that sends a command to a session that belongs
@@ -24,10 +27,11 @@ Helper function to create a new session
 def create_session(sessions, session_id, clientAddress, command, seq_num):
     print('%s [%d] Session created' % (hex(session_id), seq_num))
     sessions[session_id] = [seq_num, clientAddress, None]
+    loss[session_id] = 0
     send(Command.HELLO, session_id, clientAddress)
     
     # start initial timer
-    sessions[session_id][2] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
+    sessions[session_id][2] = Timer(5, close_session, [sessions, session_id, clientAddress])
     sessions[session_id][2].start()
 
 '''
@@ -41,6 +45,10 @@ def close_session(sessions, session_id, clientAddress):
         sessions[session_id][2].cancel() # cancel the Timer
         sessions.pop(session_id)
         print(hex(session_id),"Session closed")
+        if DEBUG:
+            total = sessions[session_id][0]
+            print(hex(session_id),"Loss: "+loss[session_id]+"/"+total+" ("+(loss[session_id]/total)+"%)")
+        loss.pop(session_id)
         send(Command.GOODBYE, session_id, clientAddress)
     
 
@@ -53,14 +61,16 @@ def respond_to_command(sessions, session_id, clientAddress, command, seq_num, da
         sessions[session_id][2].cancel()
         
         # print data
-        print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
+        if not DEBUG:
+            print('%s [%d] %s' % (hex(session_id), seq_num, data.decode('UTF-8')), end='')
         send(Command.ALIVE, session_id, clientAddress)
         
         # start timer
-        sessions[session_id][2] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
+        sessions[session_id][2] = Timer(5, close_session, [sessions, session_id, clientAddress])
         sessions[session_id][2].start()
     elif command == Command.GOODBYE:
-        print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
+        if not DEBUG:
+            print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
         close_session(sessions, session_id, clientAddress)
 
 '''
@@ -77,13 +87,16 @@ Corner cases -
 '''
 def check_command(sessions, session_id, clientAddress, command, seq_num, data):
         # Scenario A: A valid FSA transition exists
+        global loss
         if command == Command.DATA or command == Command.GOODBYE:
             expected_seq = sessions[session_id][0]
             # Scenario A1: The sequence number is too large
             # (Note missing packets and continue to Scenario 2)
             if seq_num > expected_seq:
                 for i in range (sessions[session_id][0] + 1, seq_num, 1):
-                    print('%s [%d] Lost packet!' % (hex(session_id), i))
+                    if not DEBUG:
+                        print('%s [%d] Lost packet!' % (hex(session_id), i))
+                    loss[session_id] += 1
                 expected_seq = seq_num
             
             # Scenario A2: The sequence number is valid
@@ -95,7 +108,8 @@ def check_command(sessions, session_id, clientAddress, command, seq_num, data):
             # Scenario A3: The packet appears to be a duplicate
             # (Note the duplicate and ignore its contents)
             elif seq_num == expected_seq - 1:
-                print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
+                if not DEBUG:
+                    print('%s [%d] Duplicate packet!' % (hex(session_id), seq_num))
             
             # Scenario A4: The sequence number is too small
             # (Terminate the session as this is invalid)
@@ -131,6 +145,9 @@ def handle_socket(sessions):
                         check_command(sessions, session_id, clientAddress, command, seq_num, data)
 
 if __name__ == '__main__':
+    if (len(sys.argv) > 2 and sys.argv[2].upper() == "TRUE"):
+        DEBUG = True
+
     # set up port and socket
     serverPort = int(sys.argv[1])
     serverSocket = socket(AF_INET, SOCK_DGRAM)

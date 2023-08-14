@@ -1,10 +1,10 @@
 #!/usr/bin/env python3 
 
-from packet import *
 from socket import *
 import sys
-import threading
-from threading import *
+from threading import Thread, Timer
+
+from ...packet import *
 
 crazy_HELLO = Command.HELLO
 crazy_ALIVE = Command.ALIVE
@@ -31,7 +31,7 @@ def create_session(sessions, session_id, clientAddress, command, seq_num):
     send(crazy_HELLO, session_id, clientAddress)
     
     # start initial timer
-    sessions[session_id][2] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
+    sessions[session_id][2] = Timer(5, close_session, [sessions, session_id, clientAddress])
     sessions[session_id][2].start()
 
 '''
@@ -61,7 +61,7 @@ def respond_to_command(sessions, session_id, clientAddress, command, seq_num, da
         send(crazy_ALIVE, session_id, clientAddress)
         
         # start timer
-        sessions[session_id][2] = threading.Timer(5, close_session, [sessions, session_id, clientAddress])
+        sessions[session_id][2] = Timer(5, close_session, [sessions, session_id, clientAddress])
         sessions[session_id][2].start()
     elif command == Command.GOODBYE:
         print('%s [%d] GOODBYE from client.' % (hex(session_id), seq_num))
@@ -148,7 +148,7 @@ if __name__ == '__main__':
         text = sys.stdin.readline()
         if (not text or (text == "q\n" and sys.stdin.isatty())):
             # close out of every session
-            print('Server shutdown')
+
             for session_id in list(sessions):
                 clientAddress = sessions[session_id][1]
                 close_session(sessions, session_id, clientAddress)
